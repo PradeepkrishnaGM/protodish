@@ -2,6 +2,7 @@
 // them, so no cell sees another's action from the same phase (DECISIONS.md, M2).
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "mutation.hpp"
@@ -11,19 +12,15 @@ namespace evo {
 
 namespace {
 
-struct Intent {
-    int target;
-    int source;
-};
-
 // Sorts intents by target (then source) and keeps one random winner per target.
 // One draw per contested target, in ascending target order.
-std::vector<Intent> resolve_conflicts(std::vector<Intent> intents, Rng& rng) {
+// `intents` is sorted in place; the result is written to `winners` and returned.
+const std::vector<Intent>& resolve_conflicts(std::vector<Intent>& intents, std::vector<Intent>& winners,
+                                             Rng& rng) {
     std::sort(intents.begin(), intents.end(), [](const Intent& a, const Intent& b) {
         return a.target != b.target ? a.target < b.target : a.source < b.source;
     });
-    std::vector<Intent> winners;
-    winners.reserve(intents.size());
+    winners.clear();
     for (std::size_t i = 0; i < intents.size();) {
         std::size_t j = i;
         while (j < intents.size() && intents[j].target == intents[i].target) ++j;
@@ -33,13 +30,6 @@ std::vector<Intent> resolve_conflicts(std::vector<Intent> intents, Rng& rng) {
     }
     return winners;
 }
-
-// One cell's share of a pool on one site, scaled later if the site is over-asked.
-struct Request {
-    std::size_t cell;  // index into the phase's cell list
-    int site;
-    double amount;
-};
 
 // Takes from the own site first, then asks the empty sites equally for the rest.
 // Returns the amount taken from the own site. `pool` is the per-site quantity.
@@ -75,26 +65,44 @@ void commit_requests(const std::vector<Request>& requests, std::vector<double>& 
     }
 }
 
+// Direction with column offset dx and row offset dy (each -1, 0 or 1), or -1 for (0, 0).
+constexpr int direction_of(int dx, int dy) {
+    for (int d = 0; d < 8; ++d) {
+        if (kDirDx[d] == dx && kDirDy[d] == dy) return d;
+    }
+    return -1;
+}
+
+constexpr int clamp1(int v) { return v < -1 ? -1 : (v > 1 ? 1 : v); }
+
+// How to reach each site of the 5 x 5 window around a cell (index (dy + 2) * 5 + dx + 2)
+// with at most two neighbor steps: first, then second; -1 means no step.
+struct WindowPath {
+    int first;
+    int second;
+};
+
+constexpr std::array<WindowPath, 25> make_window_paths() {
+    std::array<WindowPath, 25> paths{};
+    for (int dy = -2; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
+            const int ax = clamp1(dx), ay = clamp1(dy);
+            const int first = direction_of(ax, ay);
+            const int second = direction_of(dx - ax, dy - ay);
+            paths[static_cast<std::size_t>((dy + 2) * 5 + dx + 2)] =
+                first < 0 ? WindowPath{second, -1} : WindowPath{first, second};
+        }
+    }
+    return paths;
+}
+
+constexpr std::array<WindowPath, 25> kWindowPath = make_window_paths();
+
 }  // namespace
 
 // ---- Relations ----
 
-bool World::is_kin(int a, int b) const {
-    const auto& g = cells_.genes;
-    return tag_distance(g[kTag][static_cast<std::size_t>(a)], g[kTag][static_cast<std::size_t>(b)]) <=
-           g[kTolerance][static_cast<std::size_t>(a)];
-}
-
-double World::effective_defense(int s) const {
-    const auto i = static_cast<std::size_t>(s);
-    const double d = cells_.eff_defense[i];
-    return cells_.awake[i] ? d : d * params_.dormant_defense_multiple;
-}
-
-bool World::treats_as_prey(int a, int b) const {
-    return !is_kin(a, b) && !bonded(a, b) &&
-           cells_.eff_attack[static_cast<std::size_t>(a)] > effective_defense(b);
-}
+// is_kin, effective_defense and treats_as_prey are inline in world.hpp.
 
 // ---- 2. Sense ----
 
@@ -140,15 +148,36 @@ void World::phase_sense() {
 // ---- 3. Move ----
 
 void World::phase_move() {
-    collect_cell_sites();
     const auto& g = cells_.genes;
-    std::vector<Intent> intents;
+    std::vector<Intent>& intents = intents_;
+    intents.clear();
 
     for (const int site : cell_sites_) {
         const auto s = static_cast<std::size_t>(site);
         cells_.moved[s] = 0;
         if (!cells_.awake[s] || cells_.bonds[s]) continue;  // dormant or anchored in a body
         if (!rng_.chance(g[kMotility][s])) continue;
+
+        // The neighbors of all 8 candidate sites lie in the 5 x 5 window around the cell.
+        // Each window site's relations to the mover are worked out once, on first use.
+        std::uint32_t known = 0;
+        std::uint8_t kin_at[25], prey_at[25], threat_at[25];
+        auto relations = [&](int ox, int oy) {
+            const int wi = (oy + 2) * 5 + (ox + 2);
+            if (!(known & (1u << wi))) {
+                known |= 1u << wi;
+                const WindowPath& path = kWindowPath[static_cast<std::size_t>(wi)];
+                const int other = path.first < 0    ? site
+                                  : path.second < 0 ? neighbor(site, path.first)
+                                                    : neighbor(neighbor(site, path.first), path.second);
+                const bool occupied = other != site && cells_.alive[static_cast<std::size_t>(other)];
+                kin_at[wi] = occupied && is_kin(site, other);
+                prey_at[wi] = occupied && treats_as_prey(site, other);
+                threat_at[wi] = occupied && cells_.awake[static_cast<std::size_t>(other)] &&
+                                treats_as_prey(other, site);  // DECISIONS M3-3
+            }
+            return wi;
+        };
 
         const double diet = g[kDiet][s];
         int best[8];
@@ -163,13 +192,10 @@ void World::phase_move() {
                 1.0, (diet * cur_.food_a[c] + (1.0 - diet) * cur_.food_b[c]) / params_.move_food_norm);
             int kin = 0, prey = 0, threats = 0;
             for (int e = 0; e < 8; ++e) {
-                const int other = neighbor(cand, e);
-                if (other == site || !cells_.alive[static_cast<std::size_t>(other)]) continue;
-                if (is_kin(site, other)) ++kin;
-                if (treats_as_prey(site, other)) ++prey;
-                if (cells_.awake[static_cast<std::size_t>(other)] && treats_as_prey(other, site)) {
-                    ++threats;  // DECISIONS M3-3
-                }
+                const int wi = relations(kDirDx[d] + kDirDx[e], kDirDy[d] + kDirDy[e]);
+                kin += kin_at[wi];
+                prey += prey_at[wi];
+                threats += threat_at[wi];
             }
             const double score = g[kAppetite][s] * food +
                                  (g[kBoldness][s] * prey - g[kCaution][s] * threats +
@@ -189,7 +215,7 @@ void World::phase_move() {
         intents.push_back({target, site});
     }
 
-    for (const Intent& m : resolve_conflicts(std::move(intents), rng_)) {
+    for (const Intent& m : resolve_conflicts(intents, winners_, rng_)) {
         cells_.move(static_cast<std::size_t>(m.source), static_cast<std::size_t>(m.target));
         cells_.moved[static_cast<std::size_t>(m.target)] = 1;
     }
@@ -201,11 +227,23 @@ void World::phase_feed() {
     collect_cell_sites();
     const auto& g = cells_.genes;
     const std::size_t n_cells = cell_sites_.size();
-    const auto n = static_cast<std::size_t>(n_sites_);
 
-    std::vector<Request> req_a, req_b, req_m;
-    std::vector<double> got_a(n_cells, 0.0), got_b(n_cells, 0.0), made(n_cells, 0.0);
-    std::vector<double> demand_a(n, 0.0), demand_b(n, 0.0), demand_m(n, 0.0);
+    Scratch& sc = scratch_;
+    auto& req_a = sc.req_a;
+    auto& req_b = sc.req_b;
+    auto& req_m = sc.req_m;
+    req_a.clear();
+    req_b.clear();
+    req_m.clear();
+    auto& got_a = sc.got_a;
+    auto& got_b = sc.got_b;
+    auto& made = sc.made;
+    got_a.assign(n_cells, 0.0);
+    got_b.assign(n_cells, 0.0);
+    made.assign(n_cells, 0.0);
+    auto& demand_a = sc.demand_a;  // all zero on entry; commit_requests resets what it uses
+    auto& demand_b = sc.demand_b;
+    auto& demand_m = sc.demand_m;
 
     // Gather.
     for (std::size_t i = 0; i < n_cells; ++i) {
@@ -244,8 +282,11 @@ void World::phase_feed() {
     commit_requests(req_m, demand_m, cur_.minerals, made);
 
     // Leak: keep (1 − leak) of gross intake, pass the rest evenly to occupied neighbors.
-    std::vector<double> add_a(n_cells, 0.0), add_b(n_cells, 0.0);
-    std::vector<std::size_t> index_of(n, 0);
+    auto& add_a = sc.add_a;
+    auto& add_b = sc.add_b;
+    add_a.assign(n_cells, 0.0);
+    add_b.assign(n_cells, 0.0);
+    auto& index_of = sc.index_of;  // read only at occupied sites, which are all written here
     for (std::size_t i = 0; i < n_cells; ++i) index_of[static_cast<std::size_t>(cell_sites_[i])] = i;
 
     for (std::size_t i = 0; i < n_cells; ++i) {
@@ -285,16 +326,11 @@ void World::phase_feed() {
 // ---- 5. Attack ----
 
 void World::phase_attack() {
-    collect_cell_sites();
     const double max = params_.store_max;
 
-    struct Drain {
-        int attacker;
-        int victim;
-        double amount;
-    };
-    std::vector<Drain> drains;
-    std::vector<double> demand(static_cast<std::size_t>(n_sites_), 0.0);
+    std::vector<Drain>& drains = drains_;
+    drains.clear();
+    std::vector<double>& demand = scratch_.drain_demand;  // all zero on entry and exit
 
     // Gather: each awake attacker's drains, capped by satiation.
     for (const int site : cell_sites_) {
@@ -322,13 +358,10 @@ void World::phase_attack() {
         }
     }
     if (drains.empty()) return;
+    taken_.resize(drains.size());
 
     // Victim scaling, using the victims' stores at the start of the phase.
-    struct Taken {
-        double a;
-        double b;
-    };
-    std::vector<Taken> taken(drains.size());
+    std::vector<Taken>& taken = taken_;
     for (std::size_t i = 0; i < drains.size(); ++i) {
         const auto v = static_cast<std::size_t>(drains[i].victim);
         const double holds = cells_.store_a[v] + cells_.store_b[v];
@@ -358,14 +391,15 @@ void World::phase_attack() {
         cur_.food_a[v] += taken[i].a - keep_a;  // scraps fall on the victim's site
         cur_.food_b[v] += taken[i].b - keep_b;
     }
+    for (const Drain& dr : drains) demand[static_cast<std::size_t>(dr.victim)] = 0.0;
 }
 
 // ---- 8. Upkeep, stress and death ----
 
 void World::phase_upkeep() {
-    collect_cell_sites();
     const auto& g = cells_.genes;
-    std::vector<double> cost(cell_sites_.size(), 0.0);
+    std::vector<double>& cost = scratch_.cost;
+    cost.assign(cell_sites_.size(), 0.0);
 
     for (std::size_t i = 0; i < cell_sites_.size(); ++i) {
         const int site = cell_sites_[i];
@@ -427,11 +461,13 @@ void World::phase_upkeep() {
 // ---- 6. Share ----
 
 void World::phase_share() {
-    collect_cell_sites();
     const std::size_t n_cells = cell_sites_.size();
-    std::vector<double> give_a(n_cells, 0.0), give_b(n_cells, 0.0);
-    std::vector<double> get_a(static_cast<std::size_t>(n_sites_), 0.0);
-    std::vector<double> get_b(static_cast<std::size_t>(n_sites_), 0.0);
+    auto& give_a = scratch_.give_a;
+    auto& give_b = scratch_.give_b;
+    give_a.assign(n_cells, 0.0);
+    give_b.assign(n_cells, 0.0);
+    auto& get_a = scratch_.get_a;  // all zero on entry and exit
+    auto& get_b = scratch_.get_b;
 
     // Gather from the stores at the start of the phase.
     for (std::size_t i = 0; i < n_cells; ++i) {
@@ -463,20 +499,23 @@ void World::phase_share() {
     for (std::size_t i = 0; i < n_cells; ++i) {
         const auto s = static_cast<std::size_t>(cell_sites_[i]);
         if (get_a[s] > 0.0 || get_b[s] > 0.0) add_to_store(s, get_a[s], get_b[s]);
+        get_a[s] = 0.0;
+        get_b[s] = 0.0;
     }
 }
 
 // ---- 7. Infect ----
 
 void World::phase_infect() {
-    collect_cell_sites();
     const auto& tag = cells_.genes[kTag];
     const auto& resistance = cells_.genes[kResistance];
 
     // Gather: every rule reads the infection state at the start of the phase, and dormant
     // cells neither catch, pass nor clear a virus (DECISIONS M5-1, M5-2).
-    std::vector<Intent> intents;
-    std::vector<int> carriers;  // infected and awake at the start of the phase
+    std::vector<Intent>& intents = intents_;
+    intents.clear();
+    std::vector<int>& carriers = scratch_.carriers;  // infected and awake at the start of the phase
+    carriers.clear();
     for (const int site : cell_sites_) {
         const auto s = static_cast<std::size_t>(site);
         if (!cells_.infected[s] || !cells_.awake[s]) continue;
@@ -492,7 +531,7 @@ void World::phase_infect() {
 
     // A target reached by several sources catches one of them, picked at random (M5-3).
     // Drift applies to the copy that passes (M5-4).
-    const std::vector<Intent> winners = resolve_conflicts(std::move(intents), rng_);
+    const std::vector<Intent>& winners = resolve_conflicts(intents, winners_, rng_);
     for (const Intent& w : winners) {
         const auto t = static_cast<std::size_t>(w.target);
         double v = cells_.virus_tag[static_cast<std::size_t>(w.source)];
@@ -533,9 +572,11 @@ void World::phase_infect() {
 
 void World::phase_divide() {
     collect_cell_sites();
-    const auto n = static_cast<std::size_t>(n_sites_);
-    std::vector<Intent> intents;
-    std::vector<std::uint8_t> ready(n, 0);
+    std::vector<Intent>& intents = intents_;
+    intents.clear();
+    auto& ready = scratch_.ready;  // the three flag arrays are all zero on entry and exit
+    auto& used = scratch_.used;
+    auto& newborn = scratch_.newborn;
 
     // Gather: readiness (from the state at the start of the phase) and target sites.
     for (const int site : cell_sites_) {
@@ -561,13 +602,12 @@ void World::phase_divide() {
         intents.push_back({empties[k > 1 ? rng_.below(static_cast<std::uint32_t>(k)) : 0u], site});
     }
 
-    std::vector<Intent> winners = resolve_conflicts(std::move(intents), rng_);
+    std::vector<Intent>& winners = winners_;
+    resolve_conflicts(intents, winners, rng_);
     std::sort(winners.begin(), winners.end(),
               [](const Intent& a, const Intent& b) { return a.source < b.source; });
 
     // A cell takes part in at most one birth per tick (DECISIONS M4-4).
-    std::vector<std::uint8_t> used(n, 0);
-    std::vector<std::uint8_t> newborn(n, 0);
     for (const Intent& w : winners) used[static_cast<std::size_t>(w.source)] = 1;
 
     const auto& g = cells_.genes;
@@ -639,6 +679,18 @@ void World::phase_divide() {
                                                : BirthKind::ReleasedClone;
         births_.push_back({tick_, cells_.id[d], cells_.id[m], cells_.parent2_id[d], target, genome,
                            kind});
+    }
+
+    for (const Intent& i : intents) ready[static_cast<std::size_t>(i.source)] = 0;
+    for (const Intent& w : winners) {
+        used[static_cast<std::size_t>(w.source)] = 0;
+        newborn[static_cast<std::size_t>(w.target)] = 0;
+    }
+    for (const BirthEvent& b : births_) {
+        if (b.parent2_id != 0) {
+            // A partner is flagged used; it was a ready cell next to the daughter's site.
+            for (int e = 0; e < 8; ++e) used[static_cast<std::size_t>(neighbor(b.site, e))] = 0;
+        }
     }
 }
 

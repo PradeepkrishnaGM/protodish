@@ -156,7 +156,13 @@ World::World(const Params& params, std::uint64_t seed)
     cur_.resize(n);
     next_.resize(n);
     cells_.resize(n);
-    cell_sites_.reserve(n);
+    cell_sites_.reserve(n + 1);
+    for (auto* v : {&scratch_.demand_a, &scratch_.demand_b, &scratch_.demand_m,
+                    &scratch_.drain_demand, &scratch_.get_a, &scratch_.get_b}) {
+        v->assign(n, 0.0);
+    }
+    scratch_.index_of.assign(n, 0);
+    for (auto* v : {&scratch_.ready, &scratch_.used, &scratch_.newborn}) v->assign(n, 0);
     for (std::size_t i = 0; i < n; ++i) {
         cur_.food_a[i] = params_.initial_food_a;
         cur_.food_b[i] = params_.initial_food_b;
@@ -165,14 +171,12 @@ World::World(const Params& params, std::uint64_t seed)
 
     const int w = params_.grid_width;
     const int h = params_.grid_height;
-    static constexpr int kDx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
-    static constexpr int kDy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
     neighbors_.resize(n * 8);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             for (int d = 0; d < 8; ++d) {
-                const int nx = (x + kDx[d] + w) % w;
-                const int ny = (y + kDy[d] + h) % h;
+                const int nx = (x + kDirDx[d] + w) % w;
+                const int ny = (y + kDirDy[d] + h) % h;
                 neighbors_[static_cast<std::size_t>((y * w + x) * 8 + d)] = ny * w + nx;
             }
         }
@@ -235,22 +239,10 @@ void World::set_cell_virus(int site, double tag) {
     cells_.virus_tag[s] = tag >= 0.0 ? wrap_tag(tag) : 0.0;
 }
 
-int World::direction(int from, int to) const {
-    for (int d = 0; d < 8; ++d) {
-        if (neighbor(from, d) == to) return d;
-    }
-    return -1;
-}
-
 void World::link(int a, int b) {
     const int d = direction(a, b);
     cells_.bonds[static_cast<std::size_t>(a)] |= static_cast<std::uint8_t>(1u << d);
     cells_.bonds[static_cast<std::size_t>(b)] |= static_cast<std::uint8_t>(1u << ((d + 4) % 8));
-}
-
-bool World::bonded(int a, int b) const {
-    const int d = direction(a, b);
-    return d >= 0 && (cells_.bonds[static_cast<std::size_t>(a)] & (1u << d)) != 0;
 }
 
 bool World::add_bond(int a, int b) {
@@ -296,10 +288,14 @@ void World::prepare_climate() {
 }
 
 void World::collect_cell_sites() {
-    cell_sites_.clear();
+    // Branch-free scan: write every site, advance only past occupied ones.
+    cell_sites_.resize(static_cast<std::size_t>(n_sites_) + 1);
+    std::size_t k = 0;
     for (int s = 0; s < n_sites_; ++s) {
-        if (cells_.alive[static_cast<std::size_t>(s)]) cell_sites_.push_back(s);
+        cell_sites_[k] = s;
+        k += cells_.alive[static_cast<std::size_t>(s)];
     }
+    cell_sites_.resize(k);
 }
 
 void World::kill_cell(std::size_t s, DeathCause cause) {

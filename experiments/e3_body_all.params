@@ -1,0 +1,9 @@
+# E3: can bodies grow beyond 4 cells? (open question 3) All three changes together:
+# the mild world, a lower share threshold and cheaper crowding.
+# If bodies grow, each change is then tested alone.
+temp_season_amp = 0
+temp_latitude_amp = 0
+spark_base = 1500
+spark_season_amp = 0
+share_threshold = 5
+cost_crowding = 0.01

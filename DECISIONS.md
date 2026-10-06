@@ -276,3 +276,89 @@ world (constant 15 °C, 1,500 sparks), mean population in ticks 5,000–10,000 w
 without viruses, 2,600–3,990 at 1e-6 and 2,480–2,860 at 1e-4. Different settings change the
 RNG stream, so each comparison is between different histories. These are indications, not
 measurements.
+
+## M6 Records and tuning (approved 2026-10-06)
+
+### Rule interpretations
+
+1. **Balanced run: peak-ratio target.** Years are 2,000 ticks, counted from 1. Year 5 is
+   compared with year 4 first, then each later year with the one before it, up to year 25.
+   A pair passes when the larger peak is at most 3 × the smaller. A year's peak is the
+   largest cell count after any tick in it, from the census column `peak_cells`. Only
+   complete years are compared. An extinct run fails this target as well as "it lasts".
+2. **Balanced run: diversity.** Tag clusters follow RULES.md: the circle of living tags is
+   cut wherever two neighboring tags are more than 0.1 apart (a gap of exactly 0.1 does not
+   cut), and each arc between cuts is a cluster. With no cut, all cells form one cluster.
+   The diversity target counts only clusters of at least 10 cells. The census writes both
+   counts (`tag_clusters` and `tag_clusters_large`).
+3. **Balanced run: the other two targets** are judged on the final census row: cells alive
+   at tick 50,000, and at least one producer (photosynthesis gene > harvest gene) and one
+   consumer.
+
+### Census (CSV, one row every `census_interval` = 100 ticks)
+
+- Each row is the state at the start of tick T (after T ticks), with the season of tick T,
+  like the old summary CSV, which the census replaces. It keeps the matter totals and the
+  state hash.
+- Columns: tick, year (T / year_length), season, cells, free cells, cells in bodies,
+  bodies, bodies by size (2, 3–4, 5–8, 9–16, 17–32, 33+), largest body, inner cells,
+  infected, dormant, producers, consumers, both tag-cluster counts, then the interval
+  columns, the mean of each gene, matter totals and the hash.
+- Interval columns cover the ticks since the previous row: `peak_cells`, births by kind
+  and deaths by cause.
+- `dormant` counts cells that were dormant in the tick just run. Daughters born in that
+  tick were never sensed and are not counted.
+- Gene means are over all living cells, dormant ones included (`nan` with no cells). The
+  tag mean is written but means little, because the tag is circular.
+- New Params fields `census_interval`, `cluster_gap` and `cluster_min_size` affect only the
+  records, never the simulation.
+
+### Lineage log (binary, optional)
+
+- Written only with `evolve --lineage FILE`. Format in `core/records.hpp`: a 64-byte header
+  (magic `EVOLIN01`, version, record sizes, seed, params hash), then 100-byte birth and
+  16-byte death records, little-endian.
+- Ticks, IDs and ages are u32, sites u16, and genes float32. Float32 is enough for the
+  family tree, while replays come from the seed. Writing stops with an error if a value
+  does not fit.
+- Ancestors are logged as births of a fourth kind, `ancestor`, at tick 0, so the tree has
+  roots.
+- `LineageWriter` lives in the core (no Godot code), buffers about 1 MB and is fed by the
+  caller after each `step()`. `phase_record` stays empty.
+- Measured size: 7.7 MB per 10,000 ticks in the default world, so 40–100 MB for 50,000
+  ticks. The census is about 0.5 MB.
+- `tools/lineage_to_csv.py` dumps a log to `.births.csv` and `.deaths.csv`.
+
+### Engineering choices (M6)
+
+- **Golden hashes.** `tests/data/golden_hashes.txt` holds the state hash every 1,000 ticks,
+  up to 10,000, for seeds 1–3 in the default world and in the mild world
+  (`tests/data/mild.params`). They were recorded from commit 87ccaf0, before any speed
+  work. The slow test `golden` checks them. A deliberate rule change has to regenerate
+  the file and say why here.
+- **Speed work.** Every change keeps all golden hashes identical:
+  - The occupied-site list is rebuilt only in Sense, Feed and Divide, the phases that
+    follow a change in occupancy (disaster, Move, Upkeep deaths). The scan is branch-free.
+  - Move works out each cell in the 5 × 5 window around a mover once, instead of up to 3
+    times per candidate site. Window sites are reached through the neighbor table.
+  - Phases reuse scratch buffers that belong to the World, instead of allocating per tick.
+    Per-site buffers are zero on entry and each phase resets what it touched.
+  - The prey test runs its cheapest comparison first, and the relation helpers are
+    inline.
+  - LTO was tried and gave nothing, so it is not used.
+
+  | single process, seed 1, 10,000 ticks | before | after |
+  | --- | --- | --- |
+  | default world | 808 ticks/s | 1,112 ticks/s |
+  | mild world | 537 ticks/s | 783 ticks/s |
+
+  This CPU is an i5-10500T (6 cores, 12 MB shared L3). With 6 runs at once, each runs at
+  about 470 ticks/s, about 2,850 ticks/s in total, limited by shared cache and lower
+  all-core clocks. The largest remaining cost is Move's commit, which copies about 40
+  per-site arrays for every moving cell. Going further would mean storing genes per cell
+  (array of structs) rather than per gene, which departs from the structure-of-arrays
+  rule in the project's working rules and is not done.
+- **Tools** (`tools/`): `check_balance.py`, `batch.py` and `lineage_to_csv.py` use only the
+  standard library. `plot_run.py` needs matplotlib, installed in `.venv` from
+  `requirements.txt`. The batch runner starts one single-threaded `evolve` per job and
+  resumes interrupted batches.

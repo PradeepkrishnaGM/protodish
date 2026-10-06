@@ -59,6 +59,21 @@ struct CellArrays {
     void set_genome(std::size_t s, const Genome& g);
 };
 
+// Neighbor directions N, NE, E, SE, S, SW, W, NW as column and row offsets.
+inline constexpr int kDirDx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+inline constexpr int kDirDy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+
+// Working types of the phases (phases.cpp).
+struct Intent {  // a cell asking for a site; conflicts are resolved by the RNG
+    int target;
+    int source;
+};
+struct Request {  // one cell's share of a pool on one site, scaled if the site is over-asked
+    std::size_t cell;  // index into the phase's cell list
+    int site;
+    double amount;
+};
+
 enum class BirthKind : std::uint8_t { AttachedClone, ReleasedClone, Mating };
 enum class DeathCause : std::uint8_t { Disaster, Drained, Starved };
 
@@ -159,7 +174,7 @@ private:
     void phase_infect();
     void phase_upkeep();
     void phase_divide();
-    void phase_record() {}  // events are collected by the phases; files are written in M6
+    void phase_record() {}  // events are collected by the phases; LineageWriter (records.hpp) writes them
 
     Params params_;
     Climate climate_;
@@ -178,12 +193,73 @@ private:
     SiteState next_;
     CellArrays cells_;
     int cell_count_ = 0;
-    std::vector<int> cell_sites_;  // occupied sites in ascending order, rebuilt per phase
+    std::vector<int> cell_sites_;  // occupied sites in ascending order; rebuilt in Sense, Feed and
+                                   // Divide, the phases that follow a change of occupancy
+
+    // Scratch buffers reused across ticks, so phases do not allocate. Per-site buffers are
+    // kept all zero between phases: each phase resets the entries it touched.
+    struct Scratch {
+        std::vector<double> demand_a, demand_b, demand_m;  // Feed, per site
+        std::vector<double> got_a, got_b, made, add_a, add_b;  // Feed, per cell
+        std::vector<std::size_t> index_of;                  // Feed, site -> cell index
+        std::vector<double> drain_demand;                   // Attack, per site
+        std::vector<double> give_a, give_b;                 // Share, per cell
+        std::vector<double> get_a, get_b;                   // Share, per site
+        std::vector<std::uint8_t> ready, used, newborn;     // Divide, per site
+        std::vector<double> cost;                           // Upkeep, per cell
+        std::vector<Request> req_a, req_b, req_m;           // Feed
+        std::vector<int> carriers;                          // Infect
+    } scratch_;
+    struct Drain {  // Attack
+        int attacker;
+        int victim;
+        double amount;
+    };
+    struct Taken {  // Attack
+        double a;
+        double b;
+    };
+    std::vector<Drain> drains_;
+    std::vector<Taken> taken_;
+    std::vector<Intent> intents_;  // Move, Infect and Divide
+    std::vector<Intent> winners_;
 
     std::optional<DisasterEvent> last_disaster_;
     std::vector<BirthEvent> births_;
     std::vector<DeathEvent> deaths_;
     std::optional<std::uint64_t> extinct_at_;
 };
+
+// ---- Inline relations (RULES.md rule 1); they sit in the inner loops of Move and Attack ----
+
+inline int World::direction(int from, int to) const {
+    for (int d = 0; d < 8; ++d) {
+        if (neighbor(from, d) == to) return d;
+    }
+    return -1;
+}
+
+inline bool World::bonded(int a, int b) const {
+    const int d = direction(a, b);
+    return d >= 0 && (cells_.bonds[static_cast<std::size_t>(a)] & (1u << d)) != 0;
+}
+
+inline bool World::is_kin(int a, int b) const {
+    const auto& g = cells_.genes;
+    return tag_distance(g[kTag][static_cast<std::size_t>(a)], g[kTag][static_cast<std::size_t>(b)]) <=
+           g[kTolerance][static_cast<std::size_t>(a)];
+}
+
+inline double World::effective_defense(int s) const {
+    const auto i = static_cast<std::size_t>(s);
+    const double d = cells_.eff_defense[i];
+    return cells_.awake[i] ? d : d * params_.dormant_defense_multiple;
+}
+
+inline bool World::treats_as_prey(int a, int b) const {
+    // Cheapest test first; the result does not depend on the order.
+    return cells_.eff_attack[static_cast<std::size_t>(a)] > effective_defense(b) &&
+           !(cells_.bonds[static_cast<std::size_t>(a)] && bonded(a, b)) && !is_kin(a, b);
+}
 
 }  // namespace evo

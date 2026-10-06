@@ -1,0 +1,4 @@
+# Python packages for tools/plot_run.py (the other tools use only the standard library).
+# python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+matplotlib>=3.11
+numpy>=2.5

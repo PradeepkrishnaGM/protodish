@@ -26,6 +26,7 @@ add_library(evo_core STATIC
   core/mutation.cpp
   core/world.cpp
   core/phases.cpp
+  core/records.cpp
 )
 target_include_directories(evo_core PUBLIC core)
 target_compile_options(evo_core PRIVATE ${EVO_WARNINGS} PUBLIC ${EVO_FP_FLAGS})
@@ -46,6 +47,8 @@ add_executable(evo_tests
   tests/test_conflict.cpp
   tests/test_bodies.cpp
   tests/test_viruses.cpp
+  tests/test_golden.cpp
+  tests/test_records.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)
@@ -63,4 +66,7 @@ add_test(NAME cli_params_ok
 add_test(NAME cli_params_bad
   COMMAND evolve --params ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/bad.params --ticks 10)
 set_tests_properties(cli_params_bad PROPERTIES WILL_FAIL TRUE)
-set_tests_properties(cli_params_ok cli_params_bad PROPERTIES LABELS fast)
+add_test(NAME cli_records
+  COMMAND evolve --ticks 300 --census ${CMAKE_CURRENT_BINARY_DIR}/smoke_census.csv
+          --lineage ${CMAKE_CURRENT_BINARY_DIR}/smoke_lineage.bin)
+set_tests_properties(cli_params_ok cli_params_bad cli_records PROPERTIES LABELS fast)

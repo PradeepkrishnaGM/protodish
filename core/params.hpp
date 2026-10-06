@@ -106,7 +106,11 @@ namespace evo {
     X(double, mutation_base, 0.05)            /* chance per gene */                           \
     X(double, mutation_stress_factor, 4.0)    /* base × (1 + factor × mutability × stress) */ \
     X(double, mutation_step, 0.1)             /* max shift as a fraction of the range */      \
-    X(double, tag_mutation_step, 0.05)        /* max shift of the tag (wraps) */
+    X(double, tag_mutation_step, 0.05)        /* max shift of the tag (wraps) */ \
+    /* Records (RULES.md "Lineage record" and "What a balanced run looks like") */            \
+    X(int, census_interval, 100)              /* ticks between census rows */                 \
+    X(double, cluster_gap, 0.1)               /* tag clusters are split by gaps wider than this */ \
+    X(int, cluster_min_size, 10)              /* cells a cluster needs to count for diversity */
 
 struct Params {
 #define EVO_PARAM_FIELD(type, name, def) type name = def;

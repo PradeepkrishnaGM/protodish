@@ -1,0 +1,5 @@
+# The mild body world used in M4 and M5: constant 15 °C and 1,500 sparks per tick.
+temp_season_amp = 0
+temp_latitude_amp = 0
+spark_base = 1500
+spark_season_amp = 0

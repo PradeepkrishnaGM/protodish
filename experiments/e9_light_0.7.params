@@ -1,0 +1,3 @@
+# E9: does a brighter world let large photosynthetic bodies form, since inner cells
+# get light and recycle their own waste minerals? Light is clamped at 1.
+light_base = 0.7

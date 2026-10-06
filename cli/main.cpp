@@ -1,6 +1,6 @@
-// Headless runner: runs N ticks from a seed and writes a summary CSV.
-// World totals and population only; the census CSV and lineage log arrive in M6.
-// Each row is the state at the start of tick T, with the season of tick T.
+// Headless runner: runs N ticks from a seed, writes the census CSV and, optionally, the
+// binary lineage log (RULES.md "Lineage record"; formats in core/records.hpp).
+// Each census row is the state at the start of tick T, with the season of tick T.
 
 #include <chrono>
 #include <cstdint>
@@ -10,18 +10,20 @@
 #include <iostream>
 #include <string>
 
+#include "records.hpp"
 #include "world.hpp"
 
 namespace {
 
 void usage() {
     std::fprintf(stderr,
-                 "usage: evolve [--seed N] [--ticks N] [--every N] [--out FILE]\n"
-                 "              [--params FILE] [--dump-params]\n"
+                 "usage: evolve [--seed N] [--ticks N] [--every N] [--census FILE]\n"
+                 "              [--lineage FILE] [--params FILE] [--dump-params]\n"
                  "  --seed         RNG seed (default 1)\n"
                  "  --ticks        ticks to run (default 1000); the run ends early at extinction\n"
-                 "  --every        summary interval in ticks (default 100)\n"
-                 "  --out          summary CSV path (default stdout)\n"
+                 "  --every        census interval in ticks (default: census_interval, 100)\n"
+                 "  --census       census CSV path (default stdout); --out is the same\n"
+                 "  --lineage      write the binary lineage log to FILE (default: none)\n"
                  "  --params       key = value file overriding Params (defaults: RULES.md)\n"
                  "  --dump-params  print the effective params in the same format and exit\n");
 }
@@ -31,8 +33,9 @@ void usage() {
 int main(int argc, char** argv) {
     std::uint64_t seed = 1;
     std::uint64_t ticks = 1000;
-    std::uint64_t every = 100;
-    std::string out_path;
+    std::uint64_t every = 0;
+    std::string census_path;
+    std::string lineage_path;
     std::string params_path;
     bool dump_params = false;
 
@@ -44,8 +47,11 @@ int main(int argc, char** argv) {
             ticks = std::strtoull(argv[++i], nullptr, 10);
         } else if (std::strcmp(argv[i], "--every") == 0 && has_value) {
             every = std::strtoull(argv[++i], nullptr, 10);
-        } else if (std::strcmp(argv[i], "--out") == 0 && has_value) {
-            out_path = argv[++i];
+        } else if ((std::strcmp(argv[i], "--census") == 0 || std::strcmp(argv[i], "--out") == 0) &&
+                   has_value) {
+            census_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--lineage") == 0 && has_value) {
+            lineage_path = argv[++i];
         } else if (std::strcmp(argv[i], "--params") == 0 && has_value) {
             params_path = argv[++i];
         } else if (std::strcmp(argv[i], "--dump-params") == 0) {
@@ -55,7 +61,6 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
-    if (every == 0) every = 1;
 
     evo::Params params;
     if (!params_path.empty()) {
@@ -72,39 +77,40 @@ int main(int argc, char** argv) {
         evo::write_params(params, std::cout);
         return 0;
     }
+    if (every == 0) every = static_cast<std::uint64_t>(params.census_interval);
 
     std::FILE* out = stdout;
-    if (!out_path.empty()) {
-        out = std::fopen(out_path.c_str(), "w");
+    if (!census_path.empty()) {
+        out = std::fopen(census_path.c_str(), "w");
         if (!out) {
-            std::perror(out_path.c_str());
+            std::perror(census_path.c_str());
             return 1;
         }
     }
 
     evo::World world(params, seed);
-    std::fprintf(out,
-                 "tick,season,cells,infected,births,deaths,food_a,food_b,minerals,in_cells,total,hash\n");
-    std::uint64_t births = 0, deaths = 0;  // since the previous row
+    evo::LineageWriter lineage;
+    if (!lineage_path.empty()) {
+        if (const std::string err = lineage.open(lineage_path, world); !err.empty()) {
+            std::fprintf(stderr, "error: %s\n", err.c_str());
+            return 1;
+        }
+    }
+
+    evo::write_census_header(out);
+    evo::IntervalCounts counts;
+    counts.peak_cells = world.cell_count();
     auto write_row = [&] {
-        const evo::MatterTotals m = world.matter();
-        int infected = 0;
-        for (const auto v : world.cells().infected) infected += v;
-        std::fprintf(out, "%llu,%.6f,%d,%d,%llu,%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%016llx\n",
-                     static_cast<unsigned long long>(world.tick()),
-                     world.climate().season(world.tick()), world.cell_count(), infected,
-                     static_cast<unsigned long long>(births),
-                     static_cast<unsigned long long>(deaths), m.food_a, m.food_b, m.minerals,
-                     m.cells, m.total(), static_cast<unsigned long long>(world.state_hash()));
-        births = deaths = 0;
+        evo::write_census_row(out, evo::take_census(world), counts);
+        counts.reset();
     };
 
     const auto start = std::chrono::steady_clock::now();
     write_row();
     while (world.tick() < ticks) {
         world.step();
-        births += world.births().size();
-        deaths += world.deaths().size();
+        counts.add_tick(world);
+        lineage.add_tick(world);
         if (world.extinct_at()) {  // extinction ends the run (RULES.md open question 8)
             write_row();
             break;
@@ -114,7 +120,14 @@ int main(int argc, char** argv) {
     const double secs =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
-    if (out != stdout) std::fclose(out);
+    if (out != stdout && std::fclose(out) != 0) {
+        std::perror(census_path.c_str());
+        return 1;
+    }
+    if (const std::string err = lineage.close(); !err.empty()) {
+        std::fprintf(stderr, "error: %s\n", err.c_str());
+        return 1;
+    }
     if (world.extinct_at()) {
         std::fprintf(stderr, "extinct: last cell died in tick %llu\n",
                      static_cast<unsigned long long>(*world.extinct_at()));
@@ -123,5 +136,8 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "seed %llu: %llu ticks in %.3f s (%.0f ticks/s)\n",
                  static_cast<unsigned long long>(seed), static_cast<unsigned long long>(world.tick()),
                  secs, secs > 0 ? ran / secs : 0.0);
+    if (!lineage_path.empty()) {
+        std::fprintf(stderr, "lineage: %.1f MB\n", static_cast<double>(lineage.bytes_written()) / 1e6);
+    }
     return 0;
 }

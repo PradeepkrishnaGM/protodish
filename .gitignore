@@ -1,1 +1,4 @@
 build/
+.venv/
+runs/
+__pycache__/

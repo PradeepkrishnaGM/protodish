@@ -1,0 +1,6 @@
+# E9 in the mild world (constant 15 °C, 1,500 sparks), where bodies already reach ~11 cells.
+light_base = 0.7
+temp_season_amp = 0
+temp_latitude_amp = 0
+spark_base = 1500
+spark_season_amp = 0

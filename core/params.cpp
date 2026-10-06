@@ -111,6 +111,9 @@ std::string load_params_file(Params& p, const std::string& path) {
 std::string validate_params(const Params& p) {
     if (p.grid_width < 3 || p.grid_height < 3) return "grid must be at least 3 x 3";
     if (p.year_length < 1) return "year_length must be at least 1";
+    if (p.census_interval < 1) return "census_interval must be at least 1";
+    if (!(p.cluster_gap > 0.0 && p.cluster_gap < 0.5)) return "cluster_gap must be in (0, 0.5)";
+    if (p.cluster_min_size < 1) return "cluster_min_size must be at least 1";
     if (p.disaster_interval < 1) return "disaster_interval must be at least 1";
     if (p.disaster_size < 0 || p.disaster_size > p.grid_width || p.disaster_size > p.grid_height) {
         return "disaster_size must fit the grid";
