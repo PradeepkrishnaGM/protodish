@@ -86,11 +86,14 @@ namespace evo {
     X(double, stress_infected, 0.1)           /* while carrying a virus */                    \
     X(double, stress_poor, 0.05)              /* if intake < poor_intake × capacity */        \
     X(double, poor_intake, 0.5)                                                               \
+    /* Share */                                                                               \
+    X(double, share_threshold, 10.0)          /* gives share × (store − this) above it */     \
     /* Divide */                                                                              \
     X(std::uint32_t, divide_min_age, 10)                                                      \
     X(double, divide_min_store, 12.0)         /* of each of A and B */                        \
     X(double, clone_cost, 10.0)               /* of each of A and B, cloning mother */        \
     X(double, daughter_store, 6.0)            /* of each of A and B */                        \
+    X(double, mating_cost, 5.0)               /* of each of A and B, per mating parent */     \
     X(std::uint32_t, divide_cooldown, 5)                                                      \
     /* Mutation */                                                                            \
     X(double, mutation_base, 0.05)            /* chance per gene */                           \

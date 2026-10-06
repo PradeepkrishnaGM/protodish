@@ -128,6 +128,10 @@ std::string validate_params(const Params& p) {
         p.clone_cost != p.daughter_store + p.body_mass_b) {
         return "clone_cost must equal daughter_store + body_mass (matter conservation)";
     }
+    if (2.0 * p.mating_cost != p.daughter_store + p.body_mass_a ||
+        2.0 * p.mating_cost != p.daughter_store + p.body_mass_b) {
+        return "2 × mating_cost must equal daughter_store + body_mass (matter conservation)";
+    }
     return {};
 }
 

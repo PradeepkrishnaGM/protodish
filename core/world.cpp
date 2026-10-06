@@ -56,6 +56,8 @@ void CellArrays::resize(std::size_t n) {
     alive.assign(n, 0);
     id.assign(n, 0);
     parent_id.assign(n, 0);
+    parent2_id.assign(n, 0);
+    bonds.assign(n, 0);
     store_a.assign(n, 0.0);
     store_b.assign(n, 0.0);
     age.assign(n, 0);
@@ -66,6 +68,9 @@ void CellArrays::resize(std::size_t n) {
     awake.assign(n, 0);
     thermal_eff.assign(n, 0.0);
     supply.assign(n, 0.0);
+    eff_harvest.assign(n, 0.0);
+    eff_attack.assign(n, 0.0);
+    eff_defense.assign(n, 0.0);
     drained.assign(n, 0);
     gross_intake.assign(n, 0.0);
     feed_capacity.assign(n, 0.0);
@@ -75,6 +80,8 @@ void CellArrays::move(std::size_t from, std::size_t to) {
     alive[to] = alive[from];
     id[to] = id[from];
     parent_id[to] = parent_id[from];
+    parent2_id[to] = parent2_id[from];
+    bonds[to] = bonds[from];  // only free cells move, so this is 0
     store_a[to] = store_a[from];
     store_b[to] = store_b[from];
     age[to] = age[from];
@@ -85,6 +92,9 @@ void CellArrays::move(std::size_t from, std::size_t to) {
     awake[to] = awake[from];
     thermal_eff[to] = thermal_eff[from];
     supply[to] = supply[from];
+    eff_harvest[to] = eff_harvest[from];
+    eff_attack[to] = eff_attack[from];
+    eff_defense[to] = eff_defense[from];
     drained[to] = drained[from];
     gross_intake[to] = gross_intake[from];
     feed_capacity[to] = feed_capacity[from];
@@ -95,6 +105,8 @@ void CellArrays::clear(std::size_t s) {
     alive[s] = 0;
     id[s] = 0;
     parent_id[s] = 0;
+    parent2_id[s] = 0;
+    bonds[s] = 0;
     store_a[s] = 0.0;
     store_b[s] = 0.0;
     age[s] = 0;
@@ -105,6 +117,9 @@ void CellArrays::clear(std::size_t s) {
     awake[s] = 0;
     thermal_eff[s] = 0.0;
     supply[s] = 0.0;
+    eff_harvest[s] = 0.0;
+    eff_attack[s] = 0.0;
+    eff_defense[s] = 0.0;
     drained[s] = 0;
     gross_intake[s] = 0.0;
     feed_capacity[s] = 0.0;
@@ -208,6 +223,58 @@ void World::set_cell_stress(int site, double stress) {
     cells_.stress[static_cast<std::size_t>(site)] = stress;
 }
 
+int World::direction(int from, int to) const {
+    for (int d = 0; d < 8; ++d) {
+        if (neighbor(from, d) == to) return d;
+    }
+    return -1;
+}
+
+void World::link(int a, int b) {
+    const int d = direction(a, b);
+    cells_.bonds[static_cast<std::size_t>(a)] |= static_cast<std::uint8_t>(1u << d);
+    cells_.bonds[static_cast<std::size_t>(b)] |= static_cast<std::uint8_t>(1u << ((d + 4) % 8));
+}
+
+bool World::bonded(int a, int b) const {
+    const int d = direction(a, b);
+    return d >= 0 && (cells_.bonds[static_cast<std::size_t>(a)] & (1u << d)) != 0;
+}
+
+bool World::add_bond(int a, int b) {
+    if (!cells_.alive[static_cast<std::size_t>(a)] || !cells_.alive[static_cast<std::size_t>(b)] ||
+        a == b || direction(a, b) < 0) {
+        return false;
+    }
+    link(a, b);
+    return true;
+}
+
+std::vector<int> World::body_labels() const {
+    std::vector<int> label(static_cast<std::size_t>(n_sites_), -1);
+    std::vector<int> stack;
+    int next = 0;
+    for (int s = 0; s < n_sites_; ++s) {
+        if (!cells_.alive[static_cast<std::size_t>(s)] || label[static_cast<std::size_t>(s)] >= 0) continue;
+        label[static_cast<std::size_t>(s)] = next;
+        stack.push_back(s);
+        while (!stack.empty()) {
+            const int c = stack.back();
+            stack.pop_back();
+            for (int d = 0; d < 8; ++d) {
+                if (!(cells_.bonds[static_cast<std::size_t>(c)] & (1u << d))) continue;
+                const int t = neighbor(c, d);
+                if (label[static_cast<std::size_t>(t)] < 0) {
+                    label[static_cast<std::size_t>(t)] = next;
+                    stack.push_back(t);
+                }
+            }
+        }
+        ++next;
+    }
+    return label;
+}
+
 void World::prepare_climate() {
     season_ = climate_.season(tick_);
     for (int row = 0; row < params_.grid_height; ++row) {
@@ -224,6 +291,13 @@ void World::collect_cell_sites() {
 }
 
 void World::kill_cell(std::size_t s, DeathCause cause) {
+    // Break every bond. Pieces of a split body are simply separate bond groups now.
+    for (int d = 0; d < 8; ++d) {
+        if (cells_.bonds[s] & (1u << d)) {
+            const auto t = static_cast<std::size_t>(neighbor(static_cast<int>(s), d));
+            cells_.bonds[t] = static_cast<std::uint8_t>(cells_.bonds[t] & ~(1u << ((d + 4) % 8)));
+        }
+    }
     cur_.food_a[s] += cells_.store_a[s] + params_.body_mass_a;
     cur_.food_b[s] += cells_.store_b[s] + params_.body_mass_b;
     deaths_.push_back({tick_, cells_.id[s], cells_.age[s], static_cast<int>(s), cause});
@@ -314,6 +388,8 @@ std::uint64_t World::state_hash() const {
     h.array(cells_.alive);
     h.array(cells_.id);
     h.array(cells_.parent_id);
+    h.array(cells_.parent2_id);
+    h.array(cells_.bonds);
     h.array(cells_.store_a);
     h.array(cells_.store_b);
     h.array(cells_.age);

@@ -87,13 +87,13 @@ bool World::is_kin(int a, int b) const {
 
 double World::effective_defense(int s) const {
     const auto i = static_cast<std::size_t>(s);
-    const double d = cells_.genes[kDefense][i];
+    const double d = cells_.eff_defense[i];
     return cells_.awake[i] ? d : d * params_.dormant_defense_multiple;
 }
 
 bool World::treats_as_prey(int a, int b) const {
-    // Bonded cells are never prey (M4).
-    return !is_kin(a, b) && cells_.genes[kAttack][static_cast<std::size_t>(a)] > effective_defense(b);
+    return !is_kin(a, b) && !bonded(a, b) &&
+           cells_.eff_attack[static_cast<std::size_t>(a)] > effective_defense(b);
 }
 
 // ---- 2. Sense ----
@@ -103,6 +103,13 @@ void World::phase_sense() {
     const auto& g = cells_.genes;
     for (const int site : cell_sites_) {
         const auto s = static_cast<std::size_t>(site);
+
+        // Role split: outer cells × (1 − r) harvest, × (1 + r) attack and defense; inner the reverse.
+        const double r = g[kRoleSplit][s];
+        const double sign = is_inner(site) ? -1.0 : 1.0;
+        cells_.eff_harvest[s] = g[kHarvest][s] * (1.0 - sign * r);
+        cells_.eff_attack[s] = g[kAttack][s] * (1.0 + sign * r);
+        cells_.eff_defense[s] = g[kDefense][s] * (1.0 + sign * r);
 
         const double dt = (site_temperature(site) - g[kPreferredTemp][s]) / params_.thermal_width;
         cells_.thermal_eff[s] = std::max(0.0, 1.0 - dt * dt);
@@ -140,7 +147,7 @@ void World::phase_move() {
     for (const int site : cell_sites_) {
         const auto s = static_cast<std::size_t>(site);
         cells_.moved[s] = 0;
-        if (!cells_.awake[s]) continue;  // bonded cells are skipped from M4 on
+        if (!cells_.awake[s] || cells_.bonds[s]) continue;  // dormant or anchored in a body
         if (!rng_.chance(g[kMotility][s])) continue;
 
         const double diet = g[kDiet][s];
@@ -208,7 +215,7 @@ void World::phase_feed() {
 
         const double diet = g[kDiet][s];
         const double eff = cells_.thermal_eff[s];
-        const double base = params_.feed_rate * g[kHarvest][s] * eff;
+        const double base = params_.feed_rate * cells_.eff_harvest[s] * eff;
         const double cap_a = base * diet * diet;
         const double cap_b = base * (1.0 - diet) * (1.0 - diet);
         const double cap_m = params_.photo_rate * g[kPhotosynthesis][s] * site_light(site) * eff;
@@ -279,7 +286,6 @@ void World::phase_feed() {
 
 void World::phase_attack() {
     collect_cell_sites();
-    const auto& g = cells_.genes;
     const double max = params_.store_max;
 
     struct Drain {
@@ -302,7 +308,7 @@ void World::phase_attack() {
         for (int d = 0; d < 8; ++d) {
             const int v = neighbor(site, d);
             if (!cells_.alive[static_cast<std::size_t>(v)] || !treats_as_prey(site, v)) continue;
-            const double want = params_.drain_factor * (g[kAttack][s] - effective_defense(v)) *
+            const double want = params_.drain_factor * (cells_.eff_attack[s] - effective_defense(v)) *
                                 cells_.thermal_eff[s];
             if (want <= 0.0) continue;
             drains.push_back({site, v, want});
@@ -370,9 +376,9 @@ void World::phase_upkeep() {
         }
         const int excess = std::max(0, crowd - params_.crowding_free);
         const double total = params_.cost_alive +
-                             params_.cost_harvest * g[kHarvest][s] +
-                             params_.cost_attack * g[kAttack][s] +
-                             params_.cost_defense * g[kDefense][s] +
+                             params_.cost_harvest * cells_.eff_harvest[s] +
+                             params_.cost_attack * cells_.eff_attack[s] +
+                             params_.cost_defense * cells_.eff_defense[s] +
                              params_.cost_crowding * excess +
                              params_.cost_aging * cells_.age[s] +
                              params_.cost_move * cells_.moved[s] +
@@ -418,12 +424,57 @@ void World::phase_upkeep() {
     }
 }
 
+// ---- 6. Share ----
+
+void World::phase_share() {
+    collect_cell_sites();
+    const std::size_t n_cells = cell_sites_.size();
+    std::vector<double> give_a(n_cells, 0.0), give_b(n_cells, 0.0);
+    std::vector<double> get_a(static_cast<std::size_t>(n_sites_), 0.0);
+    std::vector<double> get_b(static_cast<std::size_t>(n_sites_), 0.0);
+
+    // Gather from the stores at the start of the phase.
+    for (std::size_t i = 0; i < n_cells; ++i) {
+        const int site = cell_sites_[i];
+        const auto s = static_cast<std::size_t>(site);
+        const unsigned mask = cells_.bonds[s];
+        if (!cells_.awake[s] || mask == 0) continue;
+        const double share = cells_.genes[kShare][s];
+        const double t = params_.share_threshold;
+        give_a[i] = cells_.store_a[s] > t ? share * (cells_.store_a[s] - t) : 0.0;
+        give_b[i] = cells_.store_b[s] > t ? share * (cells_.store_b[s] - t) : 0.0;
+        if (give_a[i] <= 0.0 && give_b[i] <= 0.0) continue;
+        int k = 0;
+        for (int d = 0; d < 8; ++d) k += (mask >> d) & 1u;
+        for (int d = 0; d < 8; ++d) {
+            if (!(mask & (1u << d))) continue;
+            const auto t_site = static_cast<std::size_t>(neighbor(site, d));
+            get_a[t_site] += give_a[i] / k;
+            get_b[t_site] += give_b[i] / k;
+        }
+    }
+
+    // Commit: every gift leaves, then every receipt arrives (with overflow).
+    for (std::size_t i = 0; i < n_cells; ++i) {
+        const auto s = static_cast<std::size_t>(cell_sites_[i]);
+        cells_.store_a[s] -= give_a[i];
+        cells_.store_b[s] -= give_b[i];
+    }
+    for (std::size_t i = 0; i < n_cells; ++i) {
+        const auto s = static_cast<std::size_t>(cell_sites_[i]);
+        if (get_a[s] > 0.0 || get_b[s] > 0.0) add_to_store(s, get_a[s], get_b[s]);
+    }
+}
+
 // ---- 9. Divide ----
 
 void World::phase_divide() {
     collect_cell_sites();
+    const auto n = static_cast<std::size_t>(n_sites_);
     std::vector<Intent> intents;
+    std::vector<std::uint8_t> ready(n, 0);
 
+    // Gather: readiness (from the state at the start of the phase) and target sites.
     for (const int site : cell_sites_) {
         const auto s = static_cast<std::size_t>(site);
         if (!cells_.awake[s]) continue;  // dormant: cooldown frozen (DECISIONS M3-7)
@@ -439,10 +490,11 @@ void World::phase_divide() {
         int empties[8];
         int k = 0;
         for (int d = 0; d < 8; ++d) {
-            const int n = neighbor(site, d);
-            if (!cells_.alive[static_cast<std::size_t>(n)]) empties[k++] = n;
+            const int nb = neighbor(site, d);
+            if (!cells_.alive[static_cast<std::size_t>(nb)]) empties[k++] = nb;
         }
         if (k == 0) continue;
+        ready[s] = 1;
         intents.push_back({empties[k > 1 ? rng_.below(static_cast<std::uint32_t>(k)) : 0u], site});
     }
 
@@ -450,28 +502,80 @@ void World::phase_divide() {
     std::sort(winners.begin(), winners.end(),
               [](const Intent& a, const Intent& b) { return a.source < b.source; });
 
-    // Adhesion and mating arrive in M4; every daughter is a released clone.
+    // A cell takes part in at most one birth per tick (DECISIONS M4-4).
+    std::vector<std::uint8_t> used(n, 0);
+    std::vector<std::uint8_t> newborn(n, 0);
+    for (const Intent& w : winners) used[static_cast<std::size_t>(w.source)] = 1;
+
+    const auto& g = cells_.genes;
     for (const Intent& w : winners) {
-        const auto m = static_cast<std::size_t>(w.source);
-        const auto d = static_cast<std::size_t>(w.target);
-        cells_.store_a[m] -= params_.clone_cost;
-        cells_.store_b[m] -= params_.clone_cost;
-        cells_.cooldown[m] = params_.divide_cooldown;
+        const int mother = w.source;
+        const int target = w.target;
+        const auto m = static_cast<std::size_t>(mother);
+        const auto d = static_cast<std::size_t>(target);
+
+        const bool attached = rng_.chance(g[kAdhesion][m]);
+        int partner = -1;
+        if (!attached && rng_.chance(g[kMating][m])) {
+            int candidates[8];
+            int k = 0;
+            for (int e = 0; e < 8; ++e) {
+                const int c = neighbor(target, e);
+                const auto ci = static_cast<std::size_t>(c);
+                if (c == mother || !cells_.alive[ci] || newborn[ci] || !ready[ci] || used[ci]) continue;
+                if (bonded(mother, c) || !is_kin(mother, c) || !is_kin(c, mother)) continue;
+                candidates[k++] = c;
+            }
+            if (k > 0) partner = candidates[k > 1 ? rng_.below(static_cast<std::uint32_t>(k)) : 0u];
+        }
 
         Genome genome = cells_.genome(m);
-        const double p = cells_.genes[kMutability][m] * cells_.stress[m];
+        double p = g[kMutability][m] * cells_.stress[m];
+        if (partner >= 0) {
+            const auto q = static_cast<std::size_t>(partner);
+            used[q] = 1;
+            for (std::size_t i = 0; i < kGeneCount; ++i) {
+                if (rng_.below(2) == 1) genome[i] = g[i][q];
+            }
+            p = (p + g[kMutability][q] * cells_.stress[q]) / 2.0;
+            for (const auto parent : {m, q}) {
+                cells_.store_a[parent] -= params_.mating_cost;
+                cells_.store_b[parent] -= params_.mating_cost;
+                cells_.cooldown[parent] = params_.divide_cooldown;
+            }
+        } else {
+            cells_.store_a[m] -= params_.clone_cost;
+            cells_.store_b[m] -= params_.clone_cost;
+            cells_.cooldown[m] = params_.divide_cooldown;
+        }
         mutate(genome, mutation_chance(p, params_), rng_, params_);
 
         cells_.clear(d);
         cells_.alive[d] = 1;
         cells_.id[d] = next_id_++;
         cells_.parent_id[d] = cells_.id[m];
+        cells_.parent2_id[d] = partner >= 0 ? cells_.id[static_cast<std::size_t>(partner)] : 0;
         cells_.store_a[d] = params_.daughter_store;
         cells_.store_b[d] = params_.daughter_store;
         cells_.set_genome(d, genome);
         ++cell_count_;
-        births_.push_back({tick_, cells_.id[d], cells_.id[m], 0, w.target, genome,
-                           BirthKind::ReleasedClone});
+        newborn[d] = 1;
+
+        if (attached) {
+            // Bond to the mother and to her pre-existing bonded neighbors next to the daughter.
+            for (int e = 0; e < 8; ++e) {
+                const int c = neighbor(target, e);
+                const auto ci = static_cast<std::size_t>(c);
+                if (c != mother && cells_.alive[ci] && !newborn[ci] && bonded(c, mother)) link(target, c);
+            }
+            link(target, mother);
+        }
+
+        const BirthKind kind = attached        ? BirthKind::AttachedClone
+                               : partner >= 0  ? BirthKind::Mating
+                                               : BirthKind::ReleasedClone;
+        births_.push_back({tick_, cells_.id[d], cells_.id[m], cells_.parent2_id[d], target, genome,
+                           kind});
     }
 }
 

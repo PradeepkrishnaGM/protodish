@@ -78,6 +78,27 @@ void require_ranges(const evo::World& w) {
     }
     REQUIRE(ok);
     REQUIRE(alive == w.cell_count());
+
+    // Bonds: symmetric, and only between living cells.
+    for (int s = 0; s < w.site_count(); ++s) {
+        const unsigned mask = c.bonds[static_cast<std::size_t>(s)];
+        if (!c.alive[static_cast<std::size_t>(s)]) {
+            ok &= mask == 0;
+            continue;
+        }
+        for (int d = 0; d < 8; ++d) {
+            const auto t = static_cast<std::size_t>(w.neighbor(s, d));
+            const bool here = (mask >> d) & 1u;
+            const bool there = (c.bonds[t] >> ((d + 4) % 8)) & 1u;
+            ok &= here == there;
+            ok &= !here || c.alive[t];
+        }
+        if (!ok) {
+            FAIL_CHECK("bond inconsistency at site " << s << ", tick " << w.tick());
+            break;
+        }
+    }
+    REQUIRE(ok);
 }
 }  // namespace
 
@@ -142,4 +163,57 @@ TEST_CASE("invariant: conflict scenario; matter and ranges hold while every M3 r
     CHECK(dormant_ticks > 100);
     CHECK(producing_ticks > 100);
     CHECK(stressed_ticks > 100);
+}
+
+TEST_CASE("invariant: body scenario; bonds stay consistent while bodies grow, share, split and mate" *
+          doctest::test_suite("slow")) {
+    // A mild world (constant 15 °C and light, more sparks, no attack) so that bodies
+    // live long enough to grow, share, split and mate. The point is coverage, not balance.
+    evo::Params p;
+    p.initial_cells = 300;
+    p.temp_season_amp = 0.0;
+    p.temp_latitude_amp = 0.0;
+    p.light_season_amp = 0.0;
+    p.light_latitude_amp = 0.0;
+    p.spark_base = 1500.0;
+    p.spark_season_amp = 0.0;
+    p.ancestor[evo::kAdhesion] = 0.6;
+    p.ancestor[evo::kShare] = 0.5;
+    p.ancestor[evo::kRoleSplit] = 0.3;
+    p.ancestor[evo::kMating] = 1.0;
+    p.ancestor[evo::kPhotosynthesis] = 0.3;
+
+    evo::World w(p, 4);
+    const double start = w.matter().total();
+    int attached = 0, matings = 0, bonded_deaths = 0, max_body = 0, inner_samples = 0;
+    for (int t = 0; t < 3000 && w.cell_count() > 0; ++t) {
+        // Count deaths of bonded cells: bonds are about to break.
+        std::vector<std::uint8_t> was_bonded(w.cells().bonds);
+        w.step();
+        REQUIRE(std::fabs(w.matter().total() - start) <= kRelTol * start);
+        require_ranges(w);
+        for (const auto& b : w.births()) {
+            attached += b.kind == evo::BirthKind::AttachedClone;
+            matings += b.kind == evo::BirthKind::Mating;
+        }
+        for (const auto& d : w.deaths()) bonded_deaths += was_bonded[static_cast<std::size_t>(d.site)] != 0;
+        if (t % 100 == 0) {
+            const auto labels = w.body_labels();
+            std::vector<int> size(labels.size(), 0);
+            for (const int l : labels) {
+                if (l >= 0) max_body = std::max(max_body, ++size[static_cast<std::size_t>(l)]);
+            }
+            for (int s = 0; s < w.site_count(); ++s) inner_samples += w.cells().alive[s] && w.is_inner(s);
+        }
+    }
+    MESSAGE("attached births " << attached << ", matings " << matings << ", deaths of bonded cells "
+                               << bonded_deaths << ", largest body " << max_body
+                               << ", inner cells seen in samples " << inner_samples << "; cells at end "
+                               << w.cell_count());
+    // Inner cells are rare in free-running worlds (bodies stay at about 10 cells), so the
+    // inner role and role split are covered by unit tests in test_bodies.cpp instead.
+    CHECK(attached > 1000);
+    CHECK(matings > 0);
+    CHECK(bonded_deaths > 1000);
+    CHECK(max_body >= 6);
 }

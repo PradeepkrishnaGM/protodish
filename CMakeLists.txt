@@ -44,6 +44,7 @@ add_executable(evo_tests
   tests/test_cells.cpp
   tests/test_params.cpp
   tests/test_conflict.cpp
+  tests/test_bodies.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)

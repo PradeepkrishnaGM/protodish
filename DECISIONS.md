@@ -182,3 +182,42 @@ population collapses every summer. Balance is left for M6 tuning.
 
 **M3 result (accepted 2026-10-06).** With RULES.md values (and M3-1), the 3 test seeds now survive
 10,000 ticks. Photosynthesis, dormancy and, in one seed, attack evolve from zero.
+
+## M4 Bodies (approved 2026-10-06)
+
+1. **Role-split values are not clamped.** Effective harvest, attack and defense may leave
+   the gene range (for example 0.8 × 1.5 = 1.2). Upkeep scales with them, which keeps the
+   effect self-limiting.
+2. **Upkeep uses the adjusted values.** Harvest, attack and defense costs use the
+   role-adjusted values ("every later rule uses these adjusted values"). The dormant ×2 on
+   defense is applied on top; the two multiplications commute.
+3. **Daughters bond only to cells that existed at the start of Divide.** An attached daughter
+   bonds to her mother and to every pre-existing cell next to her site that is bonded to the
+   mother. Daughters born in the same tick never bond to each other, so the result does not
+   depend on processing order.
+4. **Mating partners.** A partner must be ready by the full test, with the shared empty site
+   counting as its empty neighbor. It must not be bonded to the mother, and the two must
+   regard each other as kin. It must not be a mother winning its own division this tick,
+   and it must not already be a partner this tick. A cell takes part in at most one birth
+   per tick. Ready cells that lost a contested site are eligible.
+5. **Bodies have at least 2 cells.** Bodies are the connected groups of the bond graph and
+   are not stored. Free cells are counted separately. This only matters for the M6 census.
+6. **Divide draw order.** For each winning mother, in ascending site order:
+   - adhesion;
+   - the mating chance, only if the daughter is released;
+   - the partner choice, only if there is more than one candidate;
+   - one coin per gene, in table order, only when mating;
+   - mutation as before.
+
+### Engineering choices (M4)
+
+- **Bond storage.** Each cell has an 8-bit mask, one bit per direction (N, NE, …, NW).
+  Bonds are kept symmetric: bit d at s ⇔ bit (d + 4) mod 8 at neighbor(s, d). Bonded cells
+  never move, so masks are never remapped.
+- **Matings conserve matter.** `validate_params` requires 2 × `mating_cost` = daughter
+  store + body mass, as it already does for `clone_cost`.
+
+**M4 result (accepted 2026-10-06).** Under RULES.md defaults, after 10,000 ticks 2–12% of cells
+are in bodies of 2–4 cells, mean adhesion is about 0.05, and matings are rare (1–3 per run). In a
+mild test world, bodies reach about 11 cells at most. Adhesion ≥ 0.9 dies out, and inner cells
+almost never form, because anchored cells exhaust the food within reach.

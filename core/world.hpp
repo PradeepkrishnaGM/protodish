@@ -27,6 +27,8 @@ struct CellArrays {
     std::vector<std::uint8_t> alive;
     std::vector<std::uint64_t> id;
     std::vector<std::uint64_t> parent_id;
+    std::vector<std::uint64_t> parent2_id;  // 0 unless born of a mating
+    std::vector<std::uint8_t> bonds;        // bit d: bonded to neighbor(s, d); kept symmetric
     std::vector<double> store_a;
     std::vector<double> store_b;
     std::vector<std::uint32_t> age;
@@ -39,6 +41,10 @@ struct CellArrays {
     std::vector<std::uint8_t> awake;
     std::vector<double> thermal_eff;
     std::vector<double> supply;
+    // Role-adjusted genes for this tick (RULES.md rule 1, role split).
+    std::vector<double> eff_harvest;
+    std::vector<double> eff_attack;
+    std::vector<double> eff_defense;
     // Per-tick results used by later phases of the same tick.
     std::vector<std::uint8_t> drained;   // lost matter to an attack this tick
     std::vector<double> gross_intake;    // Feed intake before leak (food taken + made)
@@ -117,9 +123,18 @@ public:
     void set_cell_stores(int site, double store_a, double store_b);
     void set_cell_cooldown(int site, std::uint32_t cooldown);
     void set_cell_stress(int site, double stress);
+    // Bonds two living, adjacent cells. Returns false otherwise.
+    bool add_bond(int a, int b);
+
+    // Body label per site: -1 for an empty site, otherwise the index of the cell's
+    // connected bond group, numbered in ascending order of each group's lowest site.
+    // A free cell is a group of 1; bodies are the groups of 2 or more (DECISIONS M4-5).
+    std::vector<int> body_labels() const;
 
     // Relations from RULES.md rule 1. They depend on genes and dormancy, not position.
     bool is_kin(int a, int b) const;
+    bool bonded(int a, int b) const;
+    bool is_inner(int s) const { return cells_.bonds[static_cast<std::size_t>(s)] == 0xFF; }
     bool treats_as_prey(int a, int b) const;
     double effective_defense(int s) const;
 
@@ -128,13 +143,15 @@ private:
     void collect_cell_sites();
     void kill_cell(std::size_t s, DeathCause cause);
     void add_to_store(std::size_t s, double a, double b);
+    int direction(int from, int to) const;  // d with neighbor(from, d) == to, or -1
+    void link(int a, int b);
 
     void phase_environment();
     void phase_sense();
     void phase_move();
     void phase_feed();
     void phase_attack();
-    void phase_share() {}   // M4
+    void phase_share();
     void phase_infect() {}  // M5
     void phase_upkeep();
     void phase_divide();
