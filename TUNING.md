@@ -63,7 +63,7 @@ Not run: E2 (starting food), E5 (leak on its own), D1b, D1c, D2b, D3a.
 
 ### Candidate rule changes, for decision (none applied)
 
-1. **Write the M3-1 supply formula into RULES.md.** The engine already uses the better of
+1. **Write the M3-1 supply formula into RULES.md.** *Applied 2026-10-06; text only, the engine is unchanged.* The engine already uses the better of
    the two ways to eat (DECISIONS M3-1). RULES.md still says "(… + …) / 2", under which no
    consumer can reach a supply above 0.5. This only brings the text in line with the
    engine.

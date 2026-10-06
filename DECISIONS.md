@@ -141,6 +141,7 @@ population collapses every summer. Balance is left for M6 tuning.
    `supply = max(min(1, F / 20), min(1, (M / 20) × light × photosynthesis))`, with F and M
    as in M2-1. This departs from RULES.md's "(… + …) / 2", under which no consumer could
    reach a supply above 0.5, so a dormancy gene above 0.5 would mean permanent dormancy.
+   (Written into RULES.md on 2026-10-06, after M6. The engine did not change.)
 2. **Photosynthesis draws minerals the way feeding draws food.** Own site first, then the
    remaining demand split equally over the empty sites in reach. An over-asked site splits
    in proportion, and there is no second pass. Light is taken at the cell's current site;

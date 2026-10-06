@@ -105,7 +105,7 @@ Each cell first works out its own condition and what surrounds it.
 
 - **Reach.** A cell's reach is its own site and the empty sites next to it.
 - **Thermal efficiency** = 1 - ((temperature - preferred temperature) / 15)², never below 0. It is 1 at the preferred temperature and 0 when the site is 15 °C or more away from it.
-- **Supply** = (the food within reach that its diet lets it eat + the minerals within reach × light × its photosynthesis) / 2, at most 1.
+- **Supply** = the better of its two ways to eat: the food within reach that its diet lets it eat, divided by 20, or the minerals within reach divided by 20 × light × its photosynthesis. Each is at most 1, and supply is the larger of the two.
 - **Dormancy.** A cell is dormant in any tick in which its thermal efficiency or its supply is below its dormancy gene. A dormant cell does not move, feed, attack, share or divide. It does not age, its upkeep drops to one tenth and its defense doubles.
 - **Kin.** A cell regards another as kin when the distance between their tags is at most its own tolerance. Recognition is one-way.
 - **Prey and threats.** A cell treats a neighbor as prey when it does not regard it as kin and its own attack is higher than the neighbor's defense. It never treats a cell it is bonded to as prey. A threat is any cell that treats it as prey.
