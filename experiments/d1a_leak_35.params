@@ -1,0 +1,4 @@
+# D1a + E5: stronger climate belts and a larger leak, to reward diet partners.
+temp_latitude_amp = 10
+light_latitude_amp = 0.35
+leak_fraction = 0.35

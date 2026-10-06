@@ -12,6 +12,112 @@ balance targets and how they are judged are in DECISIONS.md, M6 1–3. RULES.md 
 never changed without approval. A changed setting also changes the RNG stream, so
 experiments are compared by the spread over seeds, not run by run.
 
+## M6 summary (2026-10-06)
+
+Tuning stopped after 186 runs of 50,000 ticks: 22 parameter sets, 6 or 24 seeds each.
+Another 12 runs repeated earlier ones to add census columns or lineage logs; they gave the
+same census.
+The RULES.md defaults are unchanged. The experiments and full results follow this summary.
+
+### The four targets under the RULES.md defaults (E0, 24 seeds)
+
+| target | runs passing | why |
+| --- | --- | --- |
+| It lasts | 20 of 24 (83%) | About 1 run in 6 dies in a predator-prey crash in spring or summer, not in winter |
+| It stays diverse (≥ 3 clusters of ≥ 10 cells, half of the final year) | **0 of 24** | Only one tag cluster most of the time; three large clusters appeared in only 1 census row |
+| Both sides exist (gene test, half of the final year) | 20 of 24, every survivor | It passes, but most cells are generalists with harvest and photosynthesis both near 0.9 |
+| It cycles (yearly peaks within ×3 from year 5) | 19 of 24 | Peaks are steady (worst ratio about ×2) in survivors; one survivor failed at ×3.08 |
+| **Balanced** | **0 of 24** | Diversity fails everywhere |
+
+No experiment produced a balanced run. Diversity held over the final year in only one
+run: e7_photo_3 seed 6, in 10% of rows.
+
+### What each experiment showed
+
+| experiment | changes | survival | diversity | verdict |
+| --- | --- | --- | --- | --- |
+| E8 mutation 0.02 / 0.10 | `mutation_base` | 6/6, 6/6 | none | no help |
+| E1 season amplitude 8 / 6 | `temp_season_amp` | 5/6, 6/6 | none | amplitude 6: twice the cells, higher lows (6 seeds only) |
+| E6 viruses | `outbreak_chance` 1e-5, 1e-4; `spread_chance` 0.3 | 5/6 each | splits during epidemics, gone afterwards | viruses thin lineages, they don't split them |
+| E7 photosynthesis | `photo_rate` 1.5, 3; `cost_photosynthesis` 0.4 | 5/6, 4/6, 6/6 | none | at rate 3 producers dominate and predators crash |
+| E9 light | `light_base` 0.7, plus the mild world | 6/6, 6/6 | none | no large bodies (largest 11 and 19) |
+| E4 drain | `drain_factor` 2 (24 seeds), 5 | 22/24, 1/6 | none | drain 5 is deadly; drain 2 halves extinctions (not statistically clear) |
+| E3 bodies | mild world, `share_threshold` 5, `cost_crowding` 0.01 | 4/6 | none | bodies still at most 11 cells |
+| D0 three starting groups | option `initial_tag_groups` = 3 | 3/6 | lost within 1–2 winters | lineages that differ only in tag don't persist |
+| D1a climate belts | `temp_latitude_amp` 10, `light_latitude_amp` 0.35 (24 seeds) | **24/24** | as E0 (10% of rows with 2) | the safest world tested; rare diet or climate splits |
+| D1a + D2a | plus `cost_move` 0.5 | 6/6 | less than D1a | no help |
+| D1a + leak | plus `leak_fraction` 0.35 | 6/6 | less than D1a | no help |
+| D3b generalist cost | option `cost_generalist` 0.4, 0.8 | 6/6, 6/6 | none | removes photosynthesis instead of splitting cells |
+
+Not run: E2 (starting food), E5 (leak on its own), D1b, D1c, D2b, D3a.
+
+### Why diversity fails
+
+- A tag has no effect except kin recognition and virus targets, so lineages that differ
+  only in tag compete as equals. D0 shows that one wins within one or two winters.
+- In E0 a cell lives a median 209 ticks, about 10 generations a year. Two lineages need
+  roughly 10–20 years side by side before their tags drift more than 0.1 apart.
+- Lineages last that long only when they hold different niches: a diet split (D1a seed 2)
+  or a climate split (D1a seed 11). Each arose in about 1 run in 12, and never three at
+  once.
+
+### Candidate rule changes, for decision (none applied)
+
+1. **Write the M3-1 supply formula into RULES.md.** The engine already uses the better of
+   the two ways to eat (DECISIONS M3-1). RULES.md still says "(… + …) / 2", under which no
+   consumer can reach a supply above 0.5. This only brings the text in line with the
+   engine.
+2. **Stronger climate belts: `temp_latitude_amp` 5 → 10, `light_latitude_amp` 0.2 → 0.35.**
+   The best evidence of any change:
+   - 0 of 24 extinctions against 4 of 24 (open question 2);
+   - median yearly low 374 against 201;
+   - lower mean attack (0.31 against 0.40).
+
+   Diversity is unchanged.
+3. **Drain factor 3 → 2** (open question 4). At 5, five of 6 runs die. At 2, 2 of 24 die
+   against 4 of 24 at 3, and the yearly low is higher (271 against 201). The direction is
+   consistent but the difference isn't statistically clear. It has not been tested
+   together with change 2.
+4. **Season amplitude 10 → 6** (open question 2). Six seeds: all last and cycle, there are
+   twice as many cells, and the yearly low is 654. But amplitude 8 had one extinction.
+   Weaker evidence than change 2; needs 24 seeds.
+5. **Diversity needs either a niche rule or a different target.** No parameter in the
+   approved range creates three lasting clusters. The options are:
+   - a mechanism that creates lasting niches: fertile spark patches (D1c, a rule change),
+     or the generalist cost started from a harvester group and a producer group (an
+     extension of D0 and D3b);
+   - a different target, such as two large clusters, or diversity measured over genes
+     instead of tags.
+
+   Evidence: E8, E6, D0, D2a and D3b above.
+6. **Which producer test becomes the target.** Neither the gene test nor the intake test
+   shows separate producer and consumer lineages:
+   - The gene test is steady through the year but splits generalists by a small
+     difference between two high genes.
+   - The intake test follows the season (E0: 83% producers in summer, 50% in winter).
+   - The intake test leaves 8–49% of cells unclassified in any tick.
+7. **Bodies (open question 3) need a rule change.** No parameter tried (mild world, share
+   threshold, crowding cost, light) produced a body larger than 19 cells or more than one
+   inner cell. Anchored cells exhaust the food within their reach. A rule giving inner
+   cells some access to food, or making sharing more effective, would have to be designed
+   and tested.
+
+Not recommended, from the evidence: other mutation rates, more frequent outbreaks, dearer
+movement, the generalist cost on its own, and leak 0.35.
+
+### RULES.md open questions after M6
+
+| # | question | status |
+| --- | --- | --- |
+| 1 | Starting food lets 50 cells establish? | Not tested (E2 not run). The defaults establish in every run |
+| 2 | Winter harsh enough without extinction? | Winters bring populations to a few hundred cells but caused no E0 extinction. Dormancy stays low (about 0.1–0.2). Stronger belts or milder seasons raise the lows |
+| 3 | Can a large body feed itself? | No: bodies stay at 19 cells at most in every setting |
+| 4 | Do predators persist at drain 3? | Yes, but they crash their prey in about 1 run in 6; at 5 in nearly every run; at 2 less often |
+| 5 | Is a 20% leak enough for partnerships? | A diet partnership appeared in 1 of 24 D1a runs (E0 had no lineage logs to check); a 35% leak did not help in 6 runs |
+| 6 | Do viruses hold back the common lineage without wiping it out? | Yes: epidemics thin populations and caused no extinction. Resistance rises only during epidemics |
+| 7 | Do producers appear, and do they crowd out consumers? | Producers appear in every run; they crowd out consumers only when photosynthesis is cheap (`photo_rate` 3) |
+| 8 | Should the run end at extinction? | Still open; runs end at extinction |
+
 ## E0 Baseline (2026-10-06)
 
 **Question.** Which of the four balanced-run targets fail under the RULES.md defaults over
@@ -526,3 +632,57 @@ happened.
   - Drain 2 lowers the risk without removing it.
 
 Plots: `runs/<experiment>/overview.png`.
+
+## D1a with 24 seeds, and D1a with leak 0.35 (2026-10-06)
+
+**Params.**
+- `d1a_belts`, seeds 1–24, with lineage logs. Seeds 1–6 were rerun to write the logs.
+- `d1a_leak_35`: D1a plus `leak_fraction` 0.2 → 0.35, 6 seeds, with lineage logs.
+
+Run times: 622 s and 138 s. The logs (about 35 MB per run) were deleted after the analysis,
+as were the D0 logs.
+
+| experiment | runs | lasts | diverse | both sides, gene | both sides, intake | cycles | balanced |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 24 | 20 | 0 | 20 | 20 | 19 | 0 |
+| d1a_belts | 24 | **24** | 0 | 23 | 24 | 22 | 0 |
+| d1a_leak_35 | 6 | 6 | 0 | 6 | 6 | 5 | 0 |
+
+| experiment | runs | cells | yearly low, median (lowest) | attack | defense | rows with ≥ 2 large clusters | seeds with ≥ 2 large clusters in > 25% of rows | rows with ≥ 3 large clusters |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 24 | 1,711 | 201 (1) | 0.40 | 0.54 | 9% | 1 | 1 |
+| d1a_belts | 24 | 1,482 | 374 (3) | 0.31 | 0.60 | 10% | 3 | 3 |
+| d1a_leak_35 | 6 | 1,499 | 388 (1) | 0.37 | 0.48 | 4% | 0 | 0 |
+
+**Runs ending with two or more large clusters** (`tools/final_clusters.py`; home rows are
+the shortest arc of rows, around the wrapping grid, that holds 80% of a cluster's cells).
+Two of 24 D1a runs, and no D1a + leak run:
+
+| run | cells | tags | diet | photo | harvest | preferred °C | home rows | mean latitude |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| d1a seed 2 | 570 | 0.59–0.76 | 0.13 | 0.97 | 0.91 | 15.0 | 100–32 (warm half) | +0.43 |
+| d1a seed 2 | 90 | 0.18–0.31 | 0.96 | 0.97 | 0.94 | 15.7 | 111–38 (warm half) | +0.48 |
+| d1a seed 11 | 1,287 | 0.05–0.21 | 0.54 | 0.95 | 0.94 | 11.0 | 18–100 (cold half) | −0.16 |
+| d1a seed 11 | 327 | 0.33–0.70 | 0.53 | 0.95 | 0.62 | 18.7 | 109–27 (warm belt) | +0.66 |
+
+Rows 0 and 127 are the warm, bright belt (latitude +1), and row 64 the cold, dim belt.
+
+**Answers**
+
+- **The diversity gain from D1a was luck.**
+  - Over 24 seeds, two large clusters exist in 10% of rows, the same as E0 (9%). The 23%
+    from the first 6 seeds did not hold up.
+  - Three large clusters appear in only 3 rows across all 24 runs.
+- **What D1a does is make runs safer.**
+  - No D1a run went extinct, against 4 of 24 in E0. The median yearly low nearly doubles
+    (374 against 201), and mean attack falls (0.31 against 0.40).
+  - Six seeds would not have shown this either way; 24 do.
+- **The two runs that end split show both kinds of niche the rules allow.**
+  - Seed 2 is a diet partnership: an A eater (diet 0.96) and a B eater (diet 0.13) share
+    the warm half.
+  - Seed 11 is a climate split: a cold lineage (11 °C, cold half) and a warm one
+    (18.7 °C, warm belt, harvest 0.62).
+  - Both arise rarely, about 1 run in 12 each.
+- **Leak 0.35 does not reward diet partners here.** No run ended with two large clusters,
+  and two large clusters existed in 4% of rows. RULES.md open question 5 remains open: with
+  6 seeds, more leak shows no sign of helping partnerships beat generalists.
