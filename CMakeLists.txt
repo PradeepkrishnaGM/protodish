@@ -21,6 +21,7 @@ endif()
 
 add_library(evo_core STATIC
   core/rng.cpp
+  core/params.cpp
   core/environment.cpp
   core/mutation.cpp
   core/world.cpp
@@ -41,7 +42,16 @@ add_executable(evo_tests
   tests/test_invariants.cpp
   tests/test_mutation.cpp
   tests/test_cells.cpp
+  tests/test_params.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)
+target_compile_definitions(evo_tests PRIVATE EVO_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
 add_test(NAME evo_tests COMMAND evo_tests)
+
+# CLI smoke tests: a params file is accepted; a bad one is rejected.
+add_test(NAME cli_params_ok
+  COMMAND evolve --params ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/example.params --ticks 100)
+add_test(NAME cli_params_bad
+  COMMAND evolve --params ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/bad.params --ticks 10)
+set_tests_properties(cli_params_bad PROPERTIES WILL_FAIL TRUE)

@@ -1,0 +1,4 @@
+# Example overrides. Any Params field name, or ancestor.<gene>.
+spark_base = 500      # more sparks
+initial_cells = 80
+ancestor.preferred_temp = 18

@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <string>
 
 #include "world.hpp"
@@ -16,10 +17,13 @@ namespace {
 void usage() {
     std::fprintf(stderr,
                  "usage: evolve [--seed N] [--ticks N] [--every N] [--out FILE]\n"
-                 "  --seed   RNG seed (default 1)\n"
-                 "  --ticks  ticks to run (default 1000)\n"
-                 "  --every  summary interval in ticks (default 100)\n"
-                 "  --out    summary CSV path (default stdout)\n");
+                 "              [--params FILE] [--dump-params]\n"
+                 "  --seed         RNG seed (default 1)\n"
+                 "  --ticks        ticks to run (default 1000); the run ends early at extinction\n"
+                 "  --every        summary interval in ticks (default 100)\n"
+                 "  --out          summary CSV path (default stdout)\n"
+                 "  --params       key = value file overriding Params (defaults: RULES.md)\n"
+                 "  --dump-params  print the effective params in the same format and exit\n");
 }
 
 }  // namespace
@@ -29,6 +33,8 @@ int main(int argc, char** argv) {
     std::uint64_t ticks = 1000;
     std::uint64_t every = 100;
     std::string out_path;
+    std::string params_path;
+    bool dump_params = false;
 
     for (int i = 1; i < argc; ++i) {
         const bool has_value = i + 1 < argc;
@@ -40,12 +46,32 @@ int main(int argc, char** argv) {
             every = std::strtoull(argv[++i], nullptr, 10);
         } else if (std::strcmp(argv[i], "--out") == 0 && has_value) {
             out_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--params") == 0 && has_value) {
+            params_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--dump-params") == 0) {
+            dump_params = true;
         } else {
             usage();
             return 2;
         }
     }
     if (every == 0) every = 1;
+
+    evo::Params params;
+    if (!params_path.empty()) {
+        if (const std::string err = evo::load_params_file(params, params_path); !err.empty()) {
+            std::fprintf(stderr, "error: %s\n", err.c_str());
+            return 2;
+        }
+    }
+    if (const std::string err = evo::validate_params(params); !err.empty()) {
+        std::fprintf(stderr, "error: invalid params: %s\n", err.c_str());
+        return 2;
+    }
+    if (dump_params) {
+        evo::write_params(params, std::cout);
+        return 0;
+    }
 
     std::FILE* out = stdout;
     if (!out_path.empty()) {
@@ -56,7 +82,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    evo::World world(evo::Params{}, seed);
+    evo::World world(params, seed);
     std::fprintf(out,
                  "tick,season,cells,births,deaths,food_a,food_b,minerals,in_cells,total,hash\n");
     std::uint64_t births = 0, deaths = 0;  // since the previous row
@@ -77,6 +103,10 @@ int main(int argc, char** argv) {
         world.step();
         births += world.births().size();
         deaths += world.deaths().size();
+        if (world.extinct_at()) {  // extinction ends the run (RULES.md open question 8)
+            write_row();
+            break;
+        }
         if (world.tick() % every == 0 || world.tick() == ticks) write_row();
     }
     const double secs =
@@ -87,8 +117,9 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "extinct: last cell died in tick %llu\n",
                      static_cast<unsigned long long>(*world.extinct_at()));
     }
+    const auto ran = static_cast<double>(world.tick());
     std::fprintf(stderr, "seed %llu: %llu ticks in %.3f s (%.0f ticks/s)\n",
-                 static_cast<unsigned long long>(seed), static_cast<unsigned long long>(ticks),
-                 secs, secs > 0 ? static_cast<double>(ticks) / secs : 0.0);
+                 static_cast<unsigned long long>(seed), static_cast<unsigned long long>(world.tick()),
+                 secs, secs > 0 ? ran / secs : 0.0);
     return 0;
 }

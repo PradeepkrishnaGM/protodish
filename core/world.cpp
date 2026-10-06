@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace evo {
@@ -118,10 +119,8 @@ World::World(const Params& params, std::uint64_t seed)
       rng_(seed),
       seed_(seed),
       n_sites_(params.grid_width * params.grid_height) {
-    // Division moves clone_cost of each food into the daughter's stores and body mass.
-    if (params_.clone_cost != params_.daughter_store + params_.body_mass_a ||
-        params_.clone_cost != params_.daughter_store + params_.body_mass_b) {
-        throw std::invalid_argument("clone_cost must equal daughter_store + body_mass");
+    if (const std::string err = validate_params(params_); !err.empty()) {
+        throw std::invalid_argument("invalid params: " + err);
     }
     const auto n = static_cast<std::size_t>(n_sites_);
     cur_.resize(n);

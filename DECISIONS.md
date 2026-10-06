@@ -116,3 +116,21 @@ that affect results. Each entry says what was decided and when.
 **M2 result (accepted 2026-10-06).** With RULES.md values, all 8 seeds tested went extinct between
 ticks 2,708 and 9,345. The ancestor (preferred 15 °C) loses energy above about 23 °C, and the
 population collapses every summer. Balance is left for M6 tuning.
+
+## Between M2 and M3 (approved 2026-10-06)
+
+- **Extinction ends the run.** The CLI stops in the tick the last cell dies, writes a final
+  row and reports the tick. RULES.md open question 8 (should ancestors drift back in?) stays
+  open. A run that starts with 0 cells is not "extinct" and runs its full length.
+- **Params files.** `evolve --params FILE` applies `key = value` lines on top of the RULES.md
+  defaults.
+  - Keys are the `Params` field names, or `ancestor.<gene>` with the gene names from
+    `genome.hpp`.
+  - `#` starts a comment.
+  - These are errors and stop the run before it starts: unknown or duplicate keys,
+    unparsable or non-finite values, ancestor genes out of range, and values that fail
+    `validate_params` (for example, `clone_cost` not equal to daughter store plus body mass).
+  - The field list exists once (the `EVO_PARAMS` X-macro), so struct fields and file keys
+    cannot drift apart.
+  - `--dump-params` prints the effective values in the same format.
+  - With no file, a run is bit-identical to the defaults.
