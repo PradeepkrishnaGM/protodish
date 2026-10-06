@@ -1,5 +1,6 @@
 // Census and lineage log (M6).
 
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -211,4 +212,46 @@ TEST_CASE("census: intake-based producers and consumers") {
     REQUIRE(c.cells == 3);  // stores below 12: nobody divides
     CHECK(c.no_intake == 1);
     CHECK(c.producers == 1);  // the gene test agrees here
+}
+
+TEST_CASE("option D0: ancestors split into evenly spaced tag groups") {
+    evo::Params p;
+    p.initial_tag_groups = 3;
+    evo::World w(p, 4);
+    std::vector<double> tags;
+    for (int s = 0; s < w.site_count(); ++s) {
+        if (w.cells().alive[static_cast<std::size_t>(s)]) tags.push_back(w.cells().genes[evo::kTag][static_cast<std::size_t>(s)]);
+    }
+    REQUIRE(tags.size() == 50);
+    int n0 = 0, n1 = 0, n2 = 0;
+    for (const double t : tags) {
+        if (std::fabs(t - 0.5) < 1e-12) ++n0;
+        else if (std::fabs(t - (0.5 + 1.0 / 3.0)) < 1e-12) ++n1;
+        else if (std::fabs(t - (0.5 + 2.0 / 3.0 - 1.0)) < 1e-12) ++n2;
+    }
+    CHECK(n0 == 17);
+    CHECK(n1 == 17);
+    CHECK(n2 == 16);
+    CHECK(evo::take_census(w).clusters.all == 3);
+
+    // The placement draws are the same as with one group: same sites, same RNG state.
+    evo::Params one;
+    evo::World u(one, 4);
+    CHECK(u.cells().alive == w.cells().alive);
+}
+
+TEST_CASE("option D3b: generalist cost adds k x harvest x photosynthesis to upkeep") {
+    auto stores_after_one_tick = [](double k) {
+        evo::Params p = lab::params();
+        p.cost_generalist = k;
+        evo::World w(p, 2);
+        evo::Genome g = lab::still(p);
+        g[evo::kHarvest] = 0.6;
+        g[evo::kPhotosynthesis] = 0.5;
+        REQUIRE(w.add_cell(at(32, 32), g, 11, 11, 10));  // row 32: upkeep multiplier 1
+        w.step();
+        return w.cells().store_a[static_cast<std::size_t>(at(32, 32))] +
+               w.cells().store_b[static_cast<std::size_t>(at(32, 32))];
+    };
+    CHECK(stores_after_one_tick(0.0) - stores_after_one_tick(0.4) == doctest::Approx(0.4 * 0.6 * 0.5));
 }

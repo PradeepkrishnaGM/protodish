@@ -1,0 +1,4 @@
+# D1a + D2a: stronger climate belts and dearer movement, to slow mixing between belts.
+temp_latitude_amp = 10
+light_latitude_amp = 0.35
+cost_move = 0.5

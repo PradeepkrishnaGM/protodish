@@ -420,7 +420,9 @@ void World::phase_upkeep() {
                              params_.cost_move * cells_.moved[s] +
                              params_.cost_photosynthesis * g[kPhotosynthesis][s] +
                              params_.cost_resistance * g[kResistance][s] +
-                             params_.cost_infection * cells_.infected[s];
+                             params_.cost_infection * cells_.infected[s] +
+                             // D3b option (0 by default, which adds exactly +0.0)
+                             params_.cost_generalist * cells_.eff_harvest[s] * g[kPhotosynthesis][s];
         cost[i] = total * (params_.upkeep_temp_base +
                            site_temperature(site) / params_.upkeep_temp_scale) *
                   (cells_.awake[s] ? 1.0 : params_.dormant_upkeep_factor);

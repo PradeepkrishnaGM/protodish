@@ -107,6 +107,9 @@ namespace evo {
     X(double, mutation_stress_factor, 4.0)    /* base × (1 + factor × mutability × stress) */ \
     X(double, mutation_step, 0.1)             /* max shift as a fraction of the range */      \
     X(double, tag_mutation_step, 0.05)        /* max shift of the tag (wraps) */ \
+    /* Experimental options, not in RULES.md; the defaults reproduce RULES.md (DECISIONS M6) */ \
+    X(int, initial_tag_groups, 1)             /* D0: ancestors split into this many tag groups */ \
+    X(double, cost_generalist, 0.0)           /* D3b: upkeep + this × harvest × photosynthesis */ \
     /* Records (RULES.md "Lineage record" and "What a balanced run looks like") */            \
     X(int, census_interval, 100)              /* ticks between census rows */                 \
     X(double, cluster_gap, 0.1)               /* tag clusters are split by gaps wider than this */ \

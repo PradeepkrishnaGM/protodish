@@ -425,3 +425,104 @@ Expectations:
 - Slower movement alone is probably not enough: motility 0.68 → 0.2 only slows spreading
   by about 1.8×.
 - D3b is the most direct test of separate producer and consumer lineages.
+
+## D0, D1a, D1a + D2a, D3b, and E4 drain 2 with 24 seeds (2026-10-06)
+
+**Params.**
+- `d0_three_groups`: `initial_tag_groups` = 3. Tags start at 0.5, 0.833 and 0.167. The
+  run writes a lineage log, which `tools/groups.py` uses to follow each group.
+- `d1a_belts`: `temp_latitude_amp` 5 → 10, `light_latitude_amp` 0.2 → 0.35.
+- `d1a_d2a_belts_move`: D1a plus `cost_move` 0.2 → 0.5.
+- `d3b_generalist_0.4` and `_0.8`: `cost_generalist` 0.4 and 0.8.
+- `e4_drain_2`: seeds 7–24 added to the 6 from before.
+
+Run times: 415 s for the D1a and D3b runs, 112 s for D0, 486 s for drain 2.
+
+| experiment | runs | lasts | diverse | both sides, gene | both sides, intake | cycles | balanced |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 24 | 20 | 0 | 20 | 20 | 19 | 0 |
+| e4_drain_2 | 24 | 22 (extinct: seeds 7, 24) | 0 | 22 | 22 | 22 | 0 |
+| d0_three_groups | 6 | 3 | 0 | 3 | 3 | 3 | 0 |
+| d1a_belts | 6 | 6 | 0 | 6 | 6 | 6 | 0 |
+| d1a_d2a_belts_move | 6 | 6 | 0 | 6 | 6 | 5 | 0 |
+| d3b_generalist_0.4 | 6 | 6 | 0 | **0** | 6 | 6 | 0 |
+| d3b_generalist_0.8 | 6 | 6 | 0 | **0** | 5 | 6 | 0 |
+
+Means over seeds, years 6–25, rows with living cells:
+
+| experiment | cells | yearly low, median (lowest) | harvest | photo | attack | defense | motility | share of cells infected | rows with ≥ 2 large clusters | largest body | gene producers | intake producers |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline (24) | 1,711 | 201 (1) | 0.90 | 0.94 | 0.40 | 0.54 | 0.72 | 6.7% | 9% | 9 | 66% | 72% |
+| e4_drain_2 (24) | 1,959 | 271 (1) | 0.89 | 0.91 | 0.36 | 0.48 | — | 6.4% | 10% | 10 | 68% | 72% |
+| d0_three_groups | 1,364 | 149 (1) | 0.92 | 0.92 | 0.39 | 0.51 | — | 5.1% | 6% | 7 | 51% | 65% |
+| d1a_belts | 1,359 | 278 (3) | 0.91 | 0.95 | 0.32 | 0.64 | 0.74 | 2.9% | **23%** | 9 | 70% | 73% |
+| d1a_d2a_belts_move | 1,496 | 468 (17) | 0.90 | 0.93 | 0.36 | 0.47 | 0.49 | 3.7% | 2% | 11 | 67% | 73% |
+| d3b_generalist_0.4 | 765 | 348 (168) | 0.96 | 0.03 | 0.10 | 0.10 | 0.71 | 0.0% | 0% | 4 | 0% | 1% |
+| d3b_generalist_0.8 | 721 | 283 (85) | 0.96 | 0.01 | 0.10 | 0.14 | 0.70 | 0.0% | 0% | 3 | 0% | 0% |
+
+(Motility was computed for E0 over seeds 1–6 only; "—" means it was not computed.)
+
+### D0: how long do the three starting groups stay separate clusters?
+
+From `tools/groups.py`. A group's extinction tick is exact. "Not all separate" is checked
+every 2,000 ticks. Daughters belong to their mother's group, and no mating between groups
+happened.
+
+| seed | first group extinct | second group extinct | census first below 3 large clusters | run |
+| --- | --- | --- | --- | --- |
+| 1 | 4,447 | 9,302 | 3,600 | extinct at 29,740 |
+| 2 | 2,425 | 6,698 | 2,400 | extinct at 9,588 |
+| 3 | 1,770 | 10,418 | 1,300 | extinct at 15,729 |
+| 4 | 1,388 | 8,198 | 1,200 | one group to the end |
+| 5 | 1,785 | 1,828 | 1,400 | one group to the end |
+| 6 | 1,312 | 2,588 | 1,100 | one group to the end |
+
+**Answers**
+
+- **D0: diversity that exists at the start does not persist.**
+  - The three groups stay three large clusters for only 1,100–3,600 ticks, the first one
+    or two winters.
+  - The census drops below 3 large clusters before the first group dies out: a group
+    falls below 10 cells in a winter low, then dies soon after.
+  - In every seed the groups stop being separate because a group dies out, not because
+    their tags drift together. While both lived, their tags stayed well apart (e.g. 0.22
+    in seed 6 at tick 2,000).
+  - The second group is gone by tick 1,828–10,418. After that each run holds one
+    lineage, and 3 of 6 runs went extinct.
+  - The groups differ only in tag, which has no effect except kin recognition and
+    viruses, so they compete as neutral lineages. Winter lows of a few hundred cells let
+    one take over within a year or two. This is why diversity cannot arise either:
+    without a niche, lineages coexist far less than the 10–20 years their tags need to
+    drift apart.
+- **D1a: stronger climate belts help a little, through diet, not climate.**
+  - Two large clusters exist in 23% of rows, against 9% in E0. Three appeared in only
+    1 row. All 6 runs last and cycle.
+  - Mean preferred temperature stays near 17 °C, so no clear cold and heat specialists
+    formed.
+  - Seed 2 was rerun with a lineage log; its census matches the batch run. At tick 50,000
+    its two large clusters were diet specialists in the same warm half of the world:
+    90 cells (tags 0.18–0.31, diet 0.96) and 570 cells (tags 0.59–0.76, diet 0.13).
+    That is the partners strategy from RULES.md. Both clusters still harvest and
+    photosynthesise at about 0.9–0.97.
+  - This is one run. Following clusters over time would need lineage logs for all seeds.
+- **D1a + D2a: dearer movement did not help.** Motility fell from 0.74 to 0.49, and the
+  median winter low rose to 468, but two large clusters existed in only 2% of rows. The
+  diversity that D1a gained disappeared.
+- **D3b: the generalist cost removes photosynthesis rather than splitting the population.**
+  - At both k = 0.4 and 0.8, mean photosynthesis falls to 0.01–0.03. Gene producers go
+    to 0%, and the population halves (721–765 cells).
+  - Viruses die out (0% of cells infected), and both sides fails in all 12 runs under the
+    gene test.
+  - The ancestor is a harvester, so a mutant that starts to photosynthesise pays the
+    generalist cost before it gains anything. That cost valley blocks any path to a
+    producer specialist.
+  - About 45–49% of cells have no gross intake in a given tick, against 12% in E0, which
+    suggests food within reach is often used up.
+  - D3b might work with a producer lineage present from the start (D0-style groups that
+    differ in harvest and photosynthesis), or with a smaller k.
+- **E4 drain 2 over 24 seeds: 2 extinctions (8%), against 4 of 24 (17%) at the default.**
+  - With 24 runs each, this difference is not statistically clear.
+  - The median yearly low rises from 201 to 271, and cycles pass in 22 of 24.
+  - Drain 2 lowers the risk without removing it.
+
+Plots: `runs/<experiment>/overview.png`.

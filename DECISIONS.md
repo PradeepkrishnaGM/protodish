@@ -384,3 +384,17 @@ measurements.
   1,000 ticks after. Control windows are virus-free, have the same length, and start at
   the same time of year (within 200 ticks), from the same runs or from `--control` runs.
   Each epidemic's matched windows are averaged, so every epidemic weighs the same.
+- **Experimental options (approved 2026-10-06).** These are not in RULES.md. Each defaults
+  to the RULES.md behavior, and the golden hashes are unchanged with the defaults. They are
+  written into RULES.md only if adopted.
+  - `initial_tag_groups` (D0, default 1): ancestor i joins group i mod G, with tag
+    ancestor.tag + g / G, wrapped. With G = 3 the groups start at 0.5, 0.833 and 0.167,
+    with 17, 17 and 16 cells. No extra random draws are made, so the ancestors' sites are
+    the same as with G = 1.
+  - `cost_generalist` (D3b, default 0): one more upkeep item, k × harvest × photosynthesis,
+    added last. Harvest is the role-adjusted value, as for the harvest cost (M4-2). It is
+    scaled by temperature and dormancy like the rest of upkeep. With k = 0 it adds exactly
+    +0.0.
+- **`tools/groups.py`** follows D0's founding groups through the lineage log. A daughter
+  belongs to her mother's group. Groups are "separate" while every pair of groups is more
+  than 0.1 apart in tag.

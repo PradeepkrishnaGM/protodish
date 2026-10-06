@@ -114,6 +114,8 @@ std::string validate_params(const Params& p) {
     if (p.census_interval < 1) return "census_interval must be at least 1";
     if (!(p.cluster_gap > 0.0 && p.cluster_gap < 0.5)) return "cluster_gap must be in (0, 0.5)";
     if (p.cluster_min_size < 1) return "cluster_min_size must be at least 1";
+    if (p.initial_tag_groups < 1) return "initial_tag_groups must be at least 1";
+    if (p.cost_generalist < 0.0) return "cost_generalist must not be negative";
     if (p.disaster_interval < 1) return "disaster_interval must be at least 1";
     if (p.disaster_size < 0 || p.disaster_size > p.grid_width || p.disaster_size > p.grid_height) {
         return "disaster_size must fit the grid";

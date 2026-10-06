@@ -195,8 +195,12 @@ World::World(const Params& params, std::uint64_t seed)
         do {
             site = static_cast<int>(rng_.below(static_cast<std::uint32_t>(n_sites_)));
         } while (cells_.alive[static_cast<std::size_t>(site)]);
-        add_cell(site, params_.ancestor, params_.initial_store_a, params_.initial_store_b,
-                 params_.initial_age);
+        // D0 option: ancestor i joins group i mod G, with tags spread evenly around the
+        // circle from the ancestor tag. With G = 1 every ancestor is identical (RULES.md).
+        Genome g = params_.ancestor;
+        const int groups = params_.initial_tag_groups;
+        if (groups > 1) g[kTag] = wrap_tag(g[kTag] + static_cast<double>(i % groups) / groups);
+        add_cell(site, g, params_.initial_store_a, params_.initial_store_b, params_.initial_age);
     }
 }
 

@@ -1,0 +1,3 @@
+# D3b: does a cost on doing both (k x harvest x photosynthesis) split producers from consumers?
+# Experimental option, not in RULES.md.
+cost_generalist = 0.4
