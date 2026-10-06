@@ -58,7 +58,7 @@ that affect results. Each entry says what was decided and when.
 
 ## M2 Ancestor life (approved 2026-10-06)
 
-1. **Supply.** `supply = (min(1, F / 20) + min(1, (M / 20) × light × photosynthesis)) / 2`,
+1. **Supply.** (Changed in M3, see M3-1.) `supply = (min(1, F / 20) + min(1, (M / 20) × light × photosynthesis)) / 2`,
    where F is the food within reach that the diet lets the cell eat,
    `Σ (diet × A + (1 − diet) × B)` over its reach, and M is the minerals within reach. Both
    are normalised by 20, as in Move. Each term is capped at 1.
@@ -134,3 +134,51 @@ population collapses every summer. Balance is left for M6 tuning.
     cannot drift apart.
   - `--dump-params` prints the effective values in the same format.
   - With no file, a run is bit-identical to the defaults.
+
+## M3 Conflict and stress (approved 2026-10-06)
+
+1. **Supply is the better of the two ways to eat.**
+   `supply = max(min(1, F / 20), min(1, (M / 20) × light × photosynthesis))`, with F and M
+   as in M2-1. This departs from RULES.md's "(… + …) / 2", under which no consumer could
+   reach a supply above 0.5, so a dormancy gene above 0.5 would mean permanent dormancy.
+2. **Photosynthesis draws minerals the way feeding draws food.** Own site first, then the
+   remaining demand split equally over the empty sites in reach. An over-asked site splits
+   in proportion, and there is no second pass. Light is taken at the cell's current site;
+   thermal efficiency is the Sense value (M2-14).
+3. **Only awake cells are threats.** A dormant cell cannot attack, so Move's threat count
+   ignores it. Dormant cells can still be prey, with their defense doubled.
+4. **Satiation uses combined room.** The room is (50 − A) + (50 − B), measured at the start of
+   Attack. An attacker's total drain over all its prey is capped at 2 × room and shared out
+   in proportion. Victim scaling (several attackers taking more than the victim holds) is
+   applied after the satiation cap.
+5. **Leak applies to gross Feed intake only.** That means food taken plus food made, per
+   kind, not drained food. Leak goes to the cells on occupied neighbor sites, dormant ones
+   included, split evenly. Received leak is not leaked again. Overflow above 50 is applied
+   once, after keeps and leak receipts are added.
+6. **Poor-environment stress.** Capacity is A capacity + B capacity + photosynthesis
+   capacity. Intake is gross Feed intake before leak, excluding received leak and drained
+   food. The stress rises when intake < 0.5 × capacity; a cell with capacity 0 never gets
+   it.
+7. **Dormant cells are frozen in time.** Stress neither fades nor rises, age does not
+   increase, and the division cooldown does not count down.
+8. **Death cause.** `Drained` if the cell lost any matter to an attack in its final tick,
+   otherwise `Starved`. Disaster kills are always `Disaster`.
+
+### Engineering choices (M3)
+
+- **Relations are evaluated on demand.** `is_kin` and `treats_as_prey` depend only on genes
+  and dormancy, not position, so Move and Attack evaluate them after cells have moved.
+  No neighbor masks are stored.
+- **Attack commit order.** All drains are subtracted from victims first, using proportions
+  from the victims' stores at the start of Attack. Then attackers' gains and scraps are
+  added. A cell that both attacks and is attacked is therefore handled the same way
+  regardless of site order.
+- **M3 adds no RNG draws.** Dormancy, leak, photosynthesis and attack are deterministic.
+- **Test labels.** Long invariant runs are in the doctest suite `slow` (ctest label `slow`); everything
+  else is `fast`. `ctest -LE slow` is the quick check. The full `ctest` runs before every
+  milestone commit.
+- **Speed (M3).** About 750 ticks/s at about 3,000 cells, so 50,000 ticks takes about 1 minute.
+  Accepted for now; optimisation is scheduled for M6.
+
+**M3 result (accepted 2026-10-06).** With RULES.md values (and M3-1), the 3 test seeds now survive
+10,000 ticks. Photosynthesis, dormancy and, in one seed, attack evolve from zero.

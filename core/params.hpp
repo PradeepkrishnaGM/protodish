@@ -55,8 +55,17 @@ namespace evo {
     /* Move */                                                                                \
     X(double, move_food_norm, 20.0)           /* food on a candidate site / this */           \
     X(double, neighbor_norm, 8.0)             /* prey, threat and kin counts / this */        \
-    /* Feed */                                                                                \
+    /* Dormancy */                                                                            \
+    X(double, dormant_upkeep_factor, 0.1)     /* a dormant cell pays this share of upkeep */  \
+    X(double, dormant_defense_multiple, 2.0)  /* a dormant cell's defense × this */           \
+    /* Feed, photosynthesis and leak */                                                       \
     X(double, feed_rate, 2.0)                 /* capacity = rate × harvest × diet² × eff */   \
+    X(double, photo_rate, 2.0)                /* capacity = rate × photo × light × eff */     \
+    X(double, leak_fraction, 0.2)             /* share of gross intake passed to neighbors */ \
+    /* Attack */                                                                              \
+    X(double, drain_factor, 3.0)              /* drain = factor × (attack − defense) × eff */ \
+    X(double, attacker_keep, 0.5)             /* share of a drain the attacker keeps */       \
+    X(double, satiation_multiple, 2.0)        /* max total drain = this × room in stores */   \
     /* Upkeep (per tick) */                                                                   \
     X(double, cost_alive, 0.2)                                                                \
     X(double, cost_harvest, 0.2)              /* × harvest */                                 \
@@ -71,6 +80,12 @@ namespace evo {
     X(double, cost_resistance, 0.2)           /* × resistance */                              \
     X(double, upkeep_temp_base, 0.5)          /* total × (base + temperature / scale) */      \
     X(double, upkeep_temp_scale, 30.0)                                                        \
+    /* Stress (updated for awake cells after upkeep; capped at 1) */                          \
+    X(double, stress_fade, 0.9)               /* stress × this each tick */                   \
+    X(double, stress_drained, 0.2)            /* if drained this tick */                      \
+    X(double, stress_infected, 0.1)           /* while carrying a virus */                    \
+    X(double, stress_poor, 0.05)              /* if intake < poor_intake × capacity */        \
+    X(double, poor_intake, 0.5)                                                               \
     /* Divide */                                                                              \
     X(std::uint32_t, divide_min_age, 10)                                                      \
     X(double, divide_min_store, 12.0)         /* of each of A and B */                        \

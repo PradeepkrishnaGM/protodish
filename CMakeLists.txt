@@ -43,11 +43,17 @@ add_executable(evo_tests
   tests/test_mutation.cpp
   tests/test_cells.cpp
   tests/test_params.cpp
+  tests/test_conflict.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)
 target_compile_definitions(evo_tests PRIVATE EVO_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-add_test(NAME evo_tests COMMAND evo_tests)
+# Unit tests run under the label "fast"; long invariant runs (doctest suite "slow") under
+# "slow". Quick check: ctest -LE slow. Before a milestone commit: ctest (everything).
+add_test(NAME evo_tests_fast COMMAND evo_tests --test-suite-exclude=slow)
+add_test(NAME evo_tests_slow COMMAND evo_tests --test-suite=slow)
+set_tests_properties(evo_tests_fast PROPERTIES LABELS fast)
+set_tests_properties(evo_tests_slow PROPERTIES LABELS slow)
 
 # CLI smoke tests: a params file is accepted; a bad one is rejected.
 add_test(NAME cli_params_ok
@@ -55,3 +61,4 @@ add_test(NAME cli_params_ok
 add_test(NAME cli_params_bad
   COMMAND evolve --params ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/bad.params --ticks 10)
 set_tests_properties(cli_params_bad PROPERTIES WILL_FAIL TRUE)
+set_tests_properties(cli_params_ok cli_params_bad PROPERTIES LABELS fast)

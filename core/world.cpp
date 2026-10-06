@@ -66,6 +66,9 @@ void CellArrays::resize(std::size_t n) {
     awake.assign(n, 0);
     thermal_eff.assign(n, 0.0);
     supply.assign(n, 0.0);
+    drained.assign(n, 0);
+    gross_intake.assign(n, 0.0);
+    feed_capacity.assign(n, 0.0);
 }
 
 void CellArrays::move(std::size_t from, std::size_t to) {
@@ -82,6 +85,9 @@ void CellArrays::move(std::size_t from, std::size_t to) {
     awake[to] = awake[from];
     thermal_eff[to] = thermal_eff[from];
     supply[to] = supply[from];
+    drained[to] = drained[from];
+    gross_intake[to] = gross_intake[from];
+    feed_capacity[to] = feed_capacity[from];
     clear(from);
 }
 
@@ -99,6 +105,9 @@ void CellArrays::clear(std::size_t s) {
     awake[s] = 0;
     thermal_eff[s] = 0.0;
     supply[s] = 0.0;
+    drained[s] = 0;
+    gross_intake[s] = 0.0;
+    feed_capacity[s] = 0.0;
 }
 
 Genome CellArrays::genome(std::size_t s) const {
@@ -193,6 +202,10 @@ void World::set_cell_stores(int site, double store_a, double store_b) {
 
 void World::set_cell_cooldown(int site, std::uint32_t cooldown) {
     cells_.cooldown[static_cast<std::size_t>(site)] = cooldown;
+}
+
+void World::set_cell_stress(int site, double stress) {
+    cells_.stress[static_cast<std::size_t>(site)] = stress;
 }
 
 void World::prepare_climate() {

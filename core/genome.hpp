@@ -65,6 +65,9 @@ inline constexpr std::array<GeneInfo, kGeneCount> kGeneInfo = {{
 
 using Genome = std::array<double, kGeneCount>;
 
+// Stress range from RULES.md ("a value from 0 to 1").
+inline constexpr double kStressMax = 1.0;
+
 // Circular distance between two tags; at most 0.5.
 inline double tag_distance(double a, double b) {
     const double d = std::fabs(a - b);

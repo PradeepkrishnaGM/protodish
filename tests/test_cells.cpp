@@ -1,48 +1,19 @@
-// Unit tests for the M2 cell phases. Each test builds a small scene on a cleared,
-// spark-free, spoilage-free world at tick 0 (season 0). Row 32 has latitude 0, so its
-// temperature is 15 °C, its light 0.5 and its upkeep multiplier exactly 1.
+// Unit tests for the M2 cell phases. Scenes are built with the helpers in lab.hpp.
 
 #include <algorithm>
 #include <set>
 
 #include "doctest.h"
-#include "world.hpp"
+#include "lab.hpp"
 
 using doctest::Approx;
+using lab::at;
+using lab::clear_ground;
+using lab::eater;
+using lab::still;
 
 namespace {
-
-constexpr int kW = 128;
-int at(int row, int col) { return row * kW + col; }
-
-evo::Params lab_params() {
-    evo::Params p;
-    p.initial_cells = 0;
-    p.spark_base = 0.0;
-    p.spark_season_amp = 0.0;
-    p.spoilage_rate = 0.0;
-    return p;
-}
-
-void clear_ground(evo::World& w) {
-    for (int s = 0; s < w.site_count(); ++s) w.set_site(s, 0.0, 0.0, 0.0);
-}
-
-// An immobile cell that does not feed.
-evo::Genome still(const evo::Params& p) {
-    evo::Genome g = p.ancestor;
-    g[evo::kMotility] = 0.0;
-    g[evo::kHarvest] = 0.0;
-    return g;
-}
-
-evo::Genome eater(const evo::Params& p, double diet) {
-    evo::Genome g = still(p);
-    g[evo::kHarvest] = 1.0;
-    g[evo::kDiet] = diet;
-    return g;
-}
-
+evo::Params lab_params() { return lab::params(); }
 }  // namespace
 
 TEST_CASE("sense: thermal efficiency") {
@@ -62,7 +33,7 @@ TEST_CASE("sense: thermal efficiency") {
     CHECK(c.thermal_eff[at(32, 30)] == Approx(0.75));
 }
 
-TEST_CASE("sense: supply normalises food and minerals by 20; occupied sites are out of reach") {
+TEST_CASE("sense: supply is the better of food and light, each /20 and capped; occupied sites are out of reach") {
     const auto p = lab_params();
     evo::World w(p, 1);
     clear_ground(w);
@@ -87,10 +58,10 @@ TEST_CASE("sense: supply normalises food and minerals by 20; occupied sites are 
 
     w.step();
     const auto& c = w.cells();
-    CHECK(c.supply[at(32, 50)] == Approx((1.0 + 1.0 * 0.5 * 0.5) / 2.0));
-    CHECK(c.supply[at(32, 80)] == Approx(0.1));
+    CHECK(c.supply[at(32, 50)] == Approx(1.0));  // max(food 1, light 1 × 0.5 × 0.5)
+    CHECK(c.supply[at(32, 80)] == Approx(0.2));
     CHECK(c.supply[at(32, 90)] == Approx(0.0));  // the food next door is under a cell
-    CHECK(c.supply[at(32, 91)] == Approx(0.5));  // capped at 1 before halving
+    CHECK(c.supply[at(32, 91)] == Approx(1.0));  // capped at 1
 }
 
 TEST_CASE("feed: own site first, then equally from the empty sites in reach") {

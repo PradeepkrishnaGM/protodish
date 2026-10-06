@@ -39,6 +39,10 @@ struct CellArrays {
     std::vector<std::uint8_t> awake;
     std::vector<double> thermal_eff;
     std::vector<double> supply;
+    // Per-tick results used by later phases of the same tick.
+    std::vector<std::uint8_t> drained;   // lost matter to an attack this tick
+    std::vector<double> gross_intake;    // Feed intake before leak (food taken + made)
+    std::vector<double> feed_capacity;   // A + B + photosynthesis capacity this tick
 
     void resize(std::size_t n);
     void move(std::size_t from, std::size_t to);
@@ -112,6 +116,12 @@ public:
     void set_site(int site, double food_a, double food_b, double minerals);
     void set_cell_stores(int site, double store_a, double store_b);
     void set_cell_cooldown(int site, std::uint32_t cooldown);
+    void set_cell_stress(int site, double stress);
+
+    // Relations from RULES.md rule 1. They depend on genes and dormancy, not position.
+    bool is_kin(int a, int b) const;
+    bool treats_as_prey(int a, int b) const;
+    double effective_defense(int s) const;
 
 private:
     void prepare_climate();
@@ -123,7 +133,7 @@ private:
     void phase_sense();
     void phase_move();
     void phase_feed();
-    void phase_attack() {}  // M3
+    void phase_attack();
     void phase_share() {}   // M4
     void phase_infect() {}  // M5
     void phase_upkeep();
