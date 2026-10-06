@@ -51,8 +51,7 @@ struct DisasterEvent {
 void apply_sparks(const SiteState& cur, SiteState& next, int count, Rng& rng, const Params& p);
 void apply_spoilage(const SiteState& cur, SiteState& next, const Params& p);
 
-// Draws the disaster square and clears occupancy inside it (wrapping).
-DisasterEvent apply_disaster(std::vector<std::uint8_t>& occupied, std::uint64_t tick, Rng& rng,
-                             const Params& p);
+// Draws the position of a disaster square (x, then y).
+DisasterEvent draw_disaster(std::uint64_t tick, Rng& rng, const Params& p);
 
 }  // namespace evo

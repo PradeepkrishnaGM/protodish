@@ -22,7 +22,9 @@ endif()
 add_library(evo_core STATIC
   core/rng.cpp
   core/environment.cpp
+  core/mutation.cpp
   core/world.cpp
+  core/phases.cpp
 )
 target_include_directories(evo_core PUBLIC core)
 target_compile_options(evo_core PRIVATE ${EVO_WARNINGS} PUBLIC ${EVO_FP_FLAGS})
@@ -37,6 +39,8 @@ add_executable(evo_tests
   tests/test_rng.cpp
   tests/test_environment.cpp
   tests/test_invariants.cpp
+  tests/test_mutation.cpp
+  tests/test_cells.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)

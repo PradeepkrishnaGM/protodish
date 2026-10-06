@@ -109,55 +109,53 @@ TEST_CASE("sparks never take more minerals than a site holds") {
     CHECK(next.food_a[0] + next.food_b[0] == Approx(6.0));
 }
 
-TEST_CASE("disaster fires at tick 5000 and clears a wrapped 24 x 24 square") {
+TEST_CASE("disaster fires on its interval and kills a wrapped 24 x 24 square") {
     evo::Params p;
+    p.disaster_interval = 50;  // same logic as 5,000, without running 10,000 full-grid ticks
+    p.initial_cells = 0;
+    p.cost_alive = 0.0;  // keep the test cells alive with no feeding
+    p.cost_harvest = 0.0;
+    p.cost_crowding = 0.0;
+    p.cost_aging = 0.0;
+    evo::Genome still = p.ancestor;
+    still[evo::kMotility] = 0.0;
+    still[evo::kHarvest] = 0.0;
     evo::World w(p, 11);
-    auto occ = w.occupied_mut();
-    std::fill(occ.begin(), occ.end(), std::uint8_t{1});
+    for (int s = 0; s < w.site_count(); ++s) REQUIRE(w.add_cell(s, still, 1.0, 1.0, 0));
+    const double total = w.matter().total();
 
-    while (w.tick() < 5000) w.step();
+    while (w.tick() < 50) w.step();
     CHECK_FALSE(w.last_disaster().has_value());
-    CHECK(std::count(occ.begin(), occ.end(), 0) == 0);
+    CHECK(w.cell_count() == w.site_count());
 
-    w.step();  // runs tick 5000
+    w.step();  // runs tick 50
     REQUIRE(w.last_disaster().has_value());
     const auto ev = *w.last_disaster();
-    CHECK(ev.tick == 5000);
-    CHECK(std::count(occ.begin(), occ.end(), 0) == 24 * 24);
+    CHECK(ev.tick == 50);
+    CHECK(w.cell_count() == w.site_count() - 24 * 24);
+    CHECK(w.deaths().size() == 24 * 24);
+    for (const auto& d : w.deaths()) CHECK(d.cause == evo::DeathCause::Disaster);
     for (int dy = 0; dy < 24; ++dy) {
         for (int dx = 0; dx < 24; ++dx) {
             const int row = (ev.y + dy) % p.grid_height;
             const int col = (ev.x + dx) % p.grid_width;
-            CHECK(occ[static_cast<std::size_t>(row * p.grid_width + col)] == 0);
+            CHECK(w.cells().alive[static_cast<std::size_t>(row * p.grid_width + col)] == 0);
         }
     }
+    CHECK(w.matter().total() == Approx(total).epsilon(1e-12));  // remains became food
 
-    std::fill(occ.begin(), occ.end(), std::uint8_t{1});
-    while (w.tick() < 10000) w.step();
-    CHECK(w.last_disaster()->tick == 5000);  // nothing in between
+    while (w.tick() < 100) w.step();
+    CHECK(w.last_disaster()->tick == 50);  // nothing in between
     w.step();
-    CHECK(w.last_disaster()->tick == 10000);
+    CHECK(w.last_disaster()->tick == 100);
 }
 
-TEST_CASE("disaster square wraps around both edges") {
+TEST_CASE("disaster position: x then y, uniform") {
     evo::Params p;
-    std::vector<std::uint8_t> occ(static_cast<std::size_t>(p.grid_width * p.grid_height), 1);
-    // Find a seed whose square crosses both edges, then check its corners.
-    for (std::uint64_t seed = 0; seed < 10000; ++seed) {
-        evo::Rng probe(seed);
-        const int x = static_cast<int>(probe.below(128));
-        const int y = static_cast<int>(probe.below(128));
-        if (x + 24 <= 128 || y + 24 <= 128) continue;
-        evo::Rng rng(seed);
-        const auto ev = evo::apply_disaster(occ, 5000, rng, p);
-        CHECK(ev.x == x);
-        CHECK(ev.y == y);
-        CHECK(occ[0] == 0);                                   // wrapped corner
-        CHECK(occ[static_cast<std::size_t>(y * 128 + x)] == 0);  // origin corner
-        CHECK(std::count(occ.begin(), occ.end(), 0) == 24 * 24);
-        return;
-    }
-    FAIL("no wrapping seed found");
+    evo::Rng a(99), b(99);
+    const auto ev = evo::draw_disaster(5000, a, p);
+    CHECK(ev.x == static_cast<int>(b.below(128)));
+    CHECK(ev.y == static_cast<int>(b.below(128)));
 }
 
 TEST_CASE("world: climate of the current tick is exposed") {

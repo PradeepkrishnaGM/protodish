@@ -55,3 +55,64 @@ that affect results. Each entry says what was decided and when.
   the tick counter and the RNG state.
 - **CLI summary rows.** Each row is the state at the start of tick T (after T ticks have run),
   labelled T, with the season of tick T.
+
+## M2 Ancestor life (approved 2026-10-06)
+
+1. **Supply.** `supply = (min(1, F / 20) + min(1, (M / 20) × light × photosynthesis)) / 2`,
+   where F is the food within reach that the diet lets the cell eat,
+   `Σ (diet × A + (1 − diet) × B)` over its reach, and M is the minerals within reach. Both
+   are normalised by 20, as in Move. Each term is capped at 1.
+2. **Mutation.** A mutating gene shifts by a uniform draw within ±10% of its range. Values
+   that cross a range edge reflect back inside. The tag shifts within ±0.05 and wraps.
+3. **Store overflow.** Any amount above 50, from any source, falls onto the cell's own site
+   as food of the same kind.
+4. **Death.** A cell that cannot pay its full upkeep pays nothing that tick. All of its stores
+   and its body mass fall onto its site as food.
+5. **Move conflicts.** When several cells pick the same empty site, the seeded RNG picks the
+   winner. Each loser stays where it is and pays no move cost. A cell never counts itself as
+   kin when scoring sites.
+6. **Feeding from several sites.** A cell takes from its own site first, up to its capacity.
+   The remaining demand is split equally across the empty sites in reach. If a site
+   cannot cover its share, the shortfall is lost for that tick, with no second pass.
+7. **Feed contention.** The own site is asked only by its occupant. Each empty site sums the
+   requests on it. If they exceed what it holds, every request is scaled by the same factor
+   (held / requested). All requests are computed from the current state and granted together.
+8. **Costs for genes whose phases come later.** The full upkeep table applies from M2 on,
+   including attack, defense, photosynthesis and resistance, even before those genes act.
+9. **Two mothers, one empty site.** The RNG picks the winner. The loser does not divide, pays
+   nothing, gets no cooldown and may try again next tick.
+10. **Cooldown timing.** A cell that divides at tick t can divide again at tick t+6 at the
+    earliest. Divide sets cooldown to 5. In the Divide phase, a cell with cooldown above 0
+    decrements it and is not ready that tick.
+11. **Tag mutation size.** ±0.05, as RULES.md states explicitly, not 10% of the tag's range.
+12. **All 20 genes mutate from M2 on.** Adhesion, mating and role split have no effect until
+    M4. Until then every daughter is a released clone and every cell is outer.
+13. **Extinction.** For now the run continues as an empty world, and the CLI reports the tick
+    when the last cell died. RULES.md open question 8 remains open. (Superseded after M2:
+    see "Between M2 and M3".)
+14. **Sense values hold for the whole tick.** Thermal efficiency and supply are computed once in
+    Sense, at the cell's site at the start of the tick, and travel with the cell if it moves.
+    Feed uses the Sense value. Upkeep's temperature multiplier uses the cell's current site,
+    as RULES.md says "the total is multiplied by 0.5 + temperature / 30".
+
+### Engineering choices (M2)
+
+- **Two-pass phases for cell state** (accepted after M2 in place of literal double buffering). Each phase first gathers every decision from the current
+  state, without writing (targets, requests, costs, ready mothers). It then commits all of
+  them. Nothing a cell does in a phase is seen by another cell in the same phase, which is
+  the effect double buffering is meant to give. The difference is that the 30 cell arrays
+  aren't copied every phase. Site food arrays are committed the same way.
+- **Iteration order.** Every phase visits cells in ascending site index. Neighbor directions are
+  ordered N, NE, E, SE, S, SW, W, NW.
+- **Fixed draw order (M2).**
+  - Move: each awake free cell draws its motility chance. A cell that moves, with more than
+    one best site, draws once to break the tie. Contested sites are then resolved in
+    ascending target order, with one draw per contested site.
+  - Divide: each ready cell with more than one empty neighbor draws its daughter's site.
+    Contested sites are resolved as in Move. Then, in ascending mother order, each daughter
+    draws per gene: one draw for the chance and, if it hits, one for the shift.
+- **IDs.** IDs start at 1 and count up. 0 means "no parent", which is what the 50 ancestors have.
+
+**M2 result (accepted 2026-10-06).** With RULES.md values, all 8 seeds tested went extinct between
+ticks 2,708 and 9,345. The ancestor (preferred 15 °C) loses energy above about 23 °C, and the
+population collapses every summer. Balance is left for M6 tuning.

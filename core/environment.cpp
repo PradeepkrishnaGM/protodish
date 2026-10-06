@@ -59,19 +59,11 @@ void apply_spoilage(const SiteState& cur, SiteState& next, const Params& p) {
     }
 }
 
-DisasterEvent apply_disaster(std::vector<std::uint8_t>& occupied, std::uint64_t tick, Rng& rng,
-                             const Params& p) {
+DisasterEvent draw_disaster(std::uint64_t tick, Rng& rng, const Params& p) {
     DisasterEvent ev;
     ev.tick = tick;
     ev.x = static_cast<int>(rng.below(static_cast<std::uint32_t>(p.grid_width)));
     ev.y = static_cast<int>(rng.below(static_cast<std::uint32_t>(p.grid_height)));
-    for (int dy = 0; dy < p.disaster_size; ++dy) {
-        const int row = (ev.y + dy) % p.grid_height;
-        for (int dx = 0; dx < p.disaster_size; ++dx) {
-            const int col = (ev.x + dx) % p.grid_width;
-            occupied[static_cast<std::size_t>(row * p.grid_width + col)] = 0;
-        }
-    }
     return ev;
 }
 
