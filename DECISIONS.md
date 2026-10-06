@@ -376,3 +376,11 @@ measurements.
   standard library. `plot_run.py` needs matplotlib, installed in `.venv` from
   `requirements.txt`. The batch runner starts one single-threaded `evolve` per job and
   resumes interrupted batches.
+- **Epidemic analysis** (`tools/epidemics.py`, M6). An epidemic is a stretch of consecutive
+  census rows with at least one infected cell (M5's definition, at census resolution).
+  Only epidemics peaking at 50 or more infected cells are analysed. One that covers more
+  than half the run counts as endemic and has no before or after. For each epidemic it
+  reports the large-cluster count before, the lowest and highest during, and the count
+  1,000 ticks after. Control windows are virus-free, have the same length, and start at
+  the same time of year (within 200 ticks), from the same runs or from `--control` runs.
+  Each epidemic's matched windows are averaged, so every epidemic weighs the same.

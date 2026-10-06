@@ -161,3 +161,158 @@ Means over seeds, years 6–25 (rows with living cells only):
 - **Neither test currently shows separate producer and consumer lineages.**
 
 Plots: `runs/<experiment>/overview.png`.
+
+## E6 Viruses, E7 Photosynthesis, E9 Light (2026-10-06)
+
+**Questions.**
+- E6: do viruses check the common lineage without wiping it out, and does resistance rise
+  over 25 years? Do epidemics split lineages (more tag clusters) or only thin them?
+- E7: do producers crowd out consumers?
+- E9: does a brighter world let large photosynthetic bodies form, since inner cells get
+  light and recycle their own waste minerals?
+
+**Params**
+
+| file | change from the defaults |
+| --- | --- |
+| e6_outbreak_1e-5 | `outbreak_chance` 1e-6 → 1e-5 |
+| e6_outbreak_1e-4 | `outbreak_chance` 1e-6 → 1e-4 |
+| e6_spread_0.3 | `spread_chance` 0.2 → 0.3 |
+| e7_photo_1.5 | `photo_rate` 2 → 1.5 |
+| e7_photo_3 | `photo_rate` 2 → 3 |
+| e7_photo_cost_0.4 | `cost_photosynthesis` 0.3 → 0.4 |
+| e9_light_0.7 | `light_base` 0.5 → 0.7 (light is clamped at 1) |
+| e9_light_0.7_mild | `light_base` 0.7 in the mild world (constant 15 °C, 1,500 sparks) |
+
+The 48 runs (6 seeds each) took 1,293 s.
+
+| experiment | lasts | diverse | both sides, gene | both sides, intake | cycles | balanced |
+| --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 6 | 0 | 6 | 6 | 6 | 0 |
+| e6_outbreak_1e-5 | 5 | 0 | 5 | 5 | 5 | 0 |
+| e6_outbreak_1e-4 | 5 | 0 | 5 | 5 | 5 | 0 |
+| e6_spread_0.3 | 5 | 0 | 4 | 5 | 5 | 0 |
+| e7_photo_1.5 | 5 | 0 | 5 | 5 | 4 | 0 |
+| e7_photo_3 | 4 | 0 (seed 6: 10%) | 3 | 4 | 4 | 0 |
+| e7_photo_cost_0.4 | 6 | 0 | 5 | 6 | 6 | 0 |
+| e9_light_0.7 | 6 | 0 | 6 | 6 | 5 | 0 |
+| e9_light_0.7_mild | 6 | 0 | 6 | 6 | 6 | 0 |
+
+Means over seeds, years 6–25, rows with living cells:
+
+| experiment | cells | yearly low, median (lowest) | harvest | photo | attack | defense | resistance | share of cells infected | rows with ≥ 2 large clusters | largest body | in bodies | gene producers | intake producers |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 1,665 | 196 (3) | 0.90 | 0.95 | 0.45 | 0.54 | 0.09 | 5.6% | 4% | 7 | 7% | 66% | 69% |
+| e6_outbreak_1e-5 | 1,755 | 408 (1) | 0.88 | 0.93 | 0.36 | 0.46 | 0.10 | 11.7% | 16% | 7 | 8% | 65% | 72% |
+| e6_outbreak_1e-4 | 1,594 | 318 (1) | 0.88 | 0.94 | 0.39 | 0.51 | 0.10 | 18.7% | 12% | 8 | 7% | 69% | 72% |
+| e6_spread_0.3 | 1,799 | 264 (1) | 0.89 | 0.93 | 0.42 | 0.63 | 0.11 | 6.3% | 5% | 8 | 7% | 63% | 72% |
+| e7_photo_1.5 | 1,530 | 431 (3) | 0.93 | 0.67 | 0.30 | 0.40 | 0.06 | 4.5% | 8% | 5 | 3% | 37% | 37% |
+| e7_photo_3 | 2,320 | 832 (1) | 0.82 | 0.96 | 0.39 | 0.69 | 0.09 | 6.4% | 3% | 10 | 8% | 83% | 93% |
+| e7_photo_cost_0.4 | 1,609 | 332 (4) | 0.93 | 0.77 | 0.33 | 0.38 | 0.06 | 6.4% | 2% | 8 | 6% | 46% | 58% |
+| e9_light_0.7 | 2,271 | 688 (6) | 0.87 | 0.96 | 0.30 | 0.79 | 0.09 | 4.7% | 11% | 11 | 9% | 80% | 90% |
+| e9_light_0.7_mild | 4,250 | 3,143 (560) | 0.94 | 0.86 | 0.17 | 0.86 | 0.07 | 2.8% | 7% | 19 | 9% | 35% | 55% |
+
+**How the 6 extinctions happened**
+
+Five were heavy drain crashes in summer or autumn, not winter die-offs or epidemics:
+- In four of them, mean attack was above mean defense, and drain killed 2.1–2.7× as many
+  cells as starvation did in the final collapse.
+- In the fifth (e7_photo_3 seed 5), drain and starvation deaths were about equal, with
+  attack and defense both high (0.84 and 0.86).
+
+| run | extinct at tick | collapse | infected at most | drained / starved deaths | attack / defense |
+| --- | --- | --- | --- | --- | --- |
+| e6_outbreak_1e-4 seed 4 | 24,340 | 1,144 cells → 0 from tick 22,100 | 35 | 4,724 / 2,275 | 0.63 / 0.42 |
+| e6_outbreak_1e-5 seed 2 | 27,985 | 1,977 → 0 from 26,700 (midsummer) | 141 | 4,160 / 1,568 | 0.78 / 0.54 |
+| e6_spread_0.3 seed 6 | 19,504 | 2,694 → 0 from 18,700 (midsummer) | 437 | 4,183 / 2,031 | 0.72 / 0.60 |
+| e7_photo_3 seed 4 | 10,049 | 4,087 → 0 from 8,100 | 555 | 15,085 / 5,902 | 0.52 / 0.38 |
+| e7_photo_3 seed 5 | 29,524 | 2,021 → 0 from 28,600 (midsummer) | 0 | 2,628 / 2,694 | 0.84 / 0.86 |
+| e7_photo_1.5 seed 2 | 40,470 | slow fall from 75 cells at 38,000 | 1 | 0 / 81 | 0.02 / 0.06 |
+
+The sixth (e7_photo_1.5 seed 2) is different. That lineage had lost photosynthesis (mean
+0.01) and shrank by starvation over about 2,500 ticks. The drain crashes bear on RULES.md
+open question 4: at the default drain factor, predators can wipe out their prey and then
+themselves. E4 tests this directly.
+
+### Do epidemics split lineages or only thin them?
+
+`tools/epidemics.py` finds every epidemic (consecutive census rows with an infected cell)
+whose peak reaches 50 infected cells. For each, it records the number of tag clusters of at
+least 10 cells ("large clusters"):
+- before: in the last row before the epidemic;
+- during: the highest count while it lasts;
+- after: 1,000 ticks after its last infected row.
+
+It also records the lowest population during the epidemic, as a share of the population
+before it. Each epidemic is compared with virus-free control windows of the same length
+that start at the same time of year (within 200 ticks). The controls come from E0, E1 and
+E8: with outbreaks at 1e-5 and 1e-4, some cell is infected almost all the time, so those
+runs have no virus-free windows of their own.
+
+```
+python3 tools/epidemics.py runs/e0_baseline runs/e6_* \
+    --control runs/e0_baseline runs/e1_* runs/e8_*
+```
+
+| experiment | epidemics (peak ≥ 50) | large clusters before → max during → after | more clusters during (control) | after: up / same / down (control) | lowest cells, share of before, median (control) |
+| --- | --- | --- | --- | --- | --- |
+| e0_baseline | 55 | 1.05 → 1.09 → 1.13 | 4% (4%) | 11 / 85 / 4% (2 / 96 / 2%) | 22% (37%) |
+| e6_outbreak_1e-5 | 82 | 1.22 → 1.28 → 1.15 | 7% (4%) | 2 / 88 / 10% (3 / 93 / 4%) | 58% (58%) |
+| e6_outbreak_1e-4 | 31, plus 1 endemic stretch | 1.16 → 1.45 → 1.13 | 26% (7%) | 6 / 84 / 10% (4 / 92 / 4%) | 97% (53%) |
+| e6_spread_0.3 | 61 | 1.10 → 1.16 → 1.05 | 7% (4%) | 3 / 89 / 8% (2 / 95 / 3%) | 24% (44%) |
+
+The endemic stretch is seed 3 of e6_outbreak_1e-4, infected from tick 23,600 to the end;
+it has no before or after. Control figures are for the 55, 78, 22 and 61 epidemics that
+have matched windows.
+
+**Answers**
+
+- **Viruses mostly thin lineages; any split they make does not last.**
+  - In 84–89% of epidemics, the number of large clusters 1,000 ticks after the end equals
+    the number before. That is close to the control (92–96%).
+  - With more viruses, a second large cluster appears during an epidemic more often than in
+    the control: 7% against 4% at 1e-5 and with faster spread, and 26% against 7% at 1e-4.
+    A virus kills the cells whose tags it matches, which can open a gap in the middle of
+    the tag range.
+  - These splits close again: after an E6 epidemic, the count is lower than before about
+    as often as it is higher, or more often (down 8–10%, up 2–6%).
+  - Across a whole run, two large clusters exist more often when viruses are frequent
+    (16% of rows at 1e-5 and 12% at 1e-4, against 4% in E0). Three large clusters were
+    reached in only 8 rows of one seed at 1e-5 and in 1 row at 1e-4. No E6 run met the
+    diversity target over its final year.
+- **Viruses thin populations at low rates.**
+  - At the default rate and with faster spread, the population falls to a median 22–24%
+    of its pre-epidemic size during an epidemic, against 37–44% in matched virus-free
+    windows.
+  - At 1e-5 there is no difference (58% against 58%).
+  - At 1e-4, epidemics last for years and often start at a winter low, so this measure
+    says little (97%).
+- **Resistance does not rise for good.** Mean resistance over years 6–25 stays at 0.10–0.11
+  in E6, the same as E0 (0.09). Its highest per-seed peak rises from 0.13–0.27 (E0) to
+  0.09–0.42 (1e-4), and then falls back.
+- **E6 and open question 6:** viruses hold the common lineage back without wiping it out.
+  None of the 3 E6 extinctions was an epidemic.
+
+**E7: producers crowd out consumers only when photosynthesis is cheap.**
+- At `photo_rate` 3, 83% of cells are gene producers and 93% intake producers. Two of 6
+  runs went extinct in predator crashes, and in seed 2 no gene consumer was left at the
+  end.
+- At `photo_rate` 1.5, or with photosynthesis costing more (0.4), photosynthesis falls to a
+  mean of 0.67 or 0.77. Gene producers drop to 37–46%, and harvest stays high (0.93).
+- The two producer tests agree closely at 1.5 (37% and 37%), which they don't in the other
+  E7 settings. The census can't show whether this means two lineages or one mixed
+  population that photosynthesises less. The lineage log could.
+- `cost_photosynthesis` 0.4 is the only E7 setting in which all 6 runs survive and cycle.
+
+**E9: no large photosynthetic bodies.**
+- Bodies stay small: the largest is 11 cells at `light_base` 0.7 and 19 in the mild bright
+  world, about 9% of cells are in bodies, mean adhesion stays at 0.07, and inner cells
+  hardly occur (at most 1).
+- Brighter light mostly raises the population: 2,271 cells, and 4,250 in the mild bright
+  world, where the yearly low never falls below 560.
+- Defense rises (0.79 and 0.86), and so does the gene producer share at 0.7 (80%), but the
+  intake test shows only 55% producers in the mild bright world.
+- The mild bright world is the steadiest setting so far: all 6 seeds last and cycle, with
+  a median yearly low of 3,143 cells. Diversity is still 0%.
+
+Plots: `runs/<experiment>/overview.png`.
