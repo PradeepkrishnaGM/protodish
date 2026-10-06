@@ -79,7 +79,8 @@ def summarise(out_dir, names, seeds, ticks, plot):
     print(evolib.SUMMARY_HEADER)
     for name in names:
         lines = [evolib.SUMMARY_HEADER]
-        counts = {"lasts": 0, "diverse": 0, "both_sides": 0, "cycles": 0, "balanced": 0}
+        counts = {"lasts": 0, "diverse": 0, "both_sides": 0, "intake_both": 0, "cycles": 0,
+                  "balanced": 0}
         censuses = []
         for seed in seeds:
             census = os.path.join(out_dir, name, f"seed{seed}", "census.csv")
@@ -97,7 +98,8 @@ def summarise(out_dir, names, seeds, ticks, plot):
             print(line)
         n = len(censuses)
         total = (f"{name}: {n} runs; lasts {counts['lasts']}, diverse {counts['diverse']}, "
-                 f"both sides {counts['both_sides']}, cycles {counts['cycles']}, "
+                 f"both sides {counts['both_sides']} (intake test {counts['intake_both']}), "
+                 f"cycles {counts['cycles']}, "
                  f"balanced {counts['balanced']}")
         lines.append(total)
         print(total)

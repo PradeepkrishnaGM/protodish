@@ -31,6 +31,12 @@ experiments are compared by the spread over seeds, not run by run.
 
 Summary: lasts 6/6, both sides 6/6, cycles 6/6, **diverse 0/6**, balanced 0/6.
 
+*Rejudged 2026-10-06 under DECISIONS M6-4 (final year) and with the intake test (M6-5).*
+E0 was rerun to add the intake columns. The state hashes match the first run and the
+golden file. Over the final year, diversity holds in 0% of rows in every seed. Both sides
+holds in 100% of rows in every seed under both the gene and the intake test. The overall
+result is unchanged: lasts 6, diverse 0, both sides 6 (intake 6), cycles 6, balanced 0.
+
 | seed | mean cells, years 6–25 | lowest count, years 6–25 | mean harvest | mean photosynthesis | mean attack | mean defense | largest body ever | peak infected | ticks with ≥ 2 large clusters |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 926 | 10 | 0.95 | 0.93 | 0.71 | 0.68 | 6 | 1,236 | 1% |
@@ -40,7 +46,7 @@ Summary: lasts 6/6, both sides 6/6, cycles 6/6, **diverse 0/6**, balanced 0/6.
 | 5 | 1,374 | 3 | 0.91 | 0.94 | 0.66 | 0.58 | 7 | 1,946 | 5% |
 | 6 | 1,962 | 24 | 0.87 | 0.95 | 0.22 | 0.48 | 7 | 1,405 | 1% |
 
-(Gene columns are means over years 6–25.)
+(Gene columns are means over years 6–25. These are from the first E0 run.)
 
 **Observations**
 
@@ -71,3 +77,87 @@ Summary: lasts 6/6, both sides 6/6, cycles 6/6, **diverse 0/6**, balanced 0/6.
   cost of resistance that pays only during epidemics.
 
 Plots: `runs/e0_baseline/overview.png`.
+
+## E8 Mutation rate and E1 Season strength (2026-10-06)
+
+**Questions.**
+- E8: is the mutation rate what limits diversity (the number of tag clusters)?
+- E1: is the summer heat, or more generally the strength of the seasons, what breaks the
+  cycles? Do the near-extinct winters seen in E0 erase diversity?
+
+**Params.**
+- E8: `mutation_base` 0.05 → 0.02 (`e8_mut_0.02`) or 0.10 (`e8_mut_0.10`).
+- E1: `temp_season_amp` 10 → 8 (`e1_season_amp_8`) or 6 (`e1_season_amp_6`).
+
+Light and sparks keep their seasonal swing in E1. All runs use 6 seeds × 50,000 ticks and
+are judged under DECISIONS M6-1 to M6-5. The 30 runs, with the E0 rerun, took 842 s.
+
+| experiment | lasts | diverse (final year) | both sides, gene | both sides, intake | cycles | balanced |
+| --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 6 | 0 | 6 | 6 | 6 | 0 |
+| e8_mut_0.02 | 6 | 0 | 4 | 6 | 6 | 0 |
+| e8_mut_0.10 | 6 | 0 | 6 | 6 | 5 (seed 5: ×4.42, y10) | 0 |
+| e1_season_amp_8 | 5 (seed 6 extinct at tick 16,192) | 0 | 5 | 5 | 5 | 0 |
+| e1_season_amp_6 | 6 | 0 | 6 | 6 | 6 | 0 |
+
+Means over seeds, years 6–25 (rows with living cells only):
+
+| experiment | mean cells | yearly low, median (lowest) | harvest | photo | attack | defense | tolerance | rows with ≥ 2 large clusters | largest body | gene producer share | intake producer share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline | 1,665 | 196 (3) | 0.90 | 0.95 | 0.45 | 0.54 | 0.10 | 4% | 7 | 66% | 69% |
+| e8_mut_0.02 | 1,871 | 290 (17) | 0.90 | 0.87 | 0.35 | 0.40 | 0.05 | 8% | 9 | 46% | 72% |
+| e8_mut_0.10 | 1,787 | 320 (7) | 0.86 | 0.95 | 0.33 | 0.73 | 0.05 | 11% | 14 | 72% | 67% |
+| e1_season_amp_8 | 2,131 | 456 (0) | 0.85 | 0.94 | 0.39 | 0.61 | 0.05 | 10% | 8 | 78% | 71% |
+| e1_season_amp_6 | 3,138 | 654 (2) | 0.87 | 0.96 | 0.21 | 0.59 | 0.07 | 12% | 9 | 75% | 78% |
+
+**Answers**
+
+- **E8: no.** Mutation 0.4× or 2× the default does not make three tag clusters. Diversity
+  holds in 0% of final-year rows in all 12 runs. Two clusters of 10 or more cells exist in
+  8–11% of rows, against 4% in E0. Three appeared only briefly: 3 rows (ticks
+  32,000–32,200) in e8_mut_0.02 seed 2, and 4 rows (ticks 29,700–30,000) in
+  e1_season_amp_6 seed 1. Nothing else in E0, E8 or E1 reached three. Mean tolerance falls from 0.10 to about
+  0.05 in all four non-default experiments, so kin recognition narrows. At 0.10 one seed
+  failed the cycles target. At 0.02 two seeds had no gene consumer at the end, though the
+  intake test still found 211–250 cells living mainly on food.
+- **E1: weaker seasons give more cells, but not diversity.** At amplitude 6 the mean
+  population almost doubles (3,138 against 1,665), the median winter low rises from 196 to
+  654, attack falls (0.21 against 0.45), and all 6 seeds pass the cycles target. Diversity
+  is still 0% in every run.
+  - Single winters can still come close to wiping out a run: seed 6 at amplitude 6 fell to
+    2 cells at tick 11,700.
+  - At amplitude 8, seed 6 went extinct. In the winter of year 8 (ticks 15,100–15,600),
+    starvation and drain together took it from 956 cells to 10. Dormancy stayed near 0.1,
+    so almost no cell hibernated. The last 2 cells lived on until tick 16,192 without
+    dividing, then starved.
+  - The E0 bottlenecks are therefore not the only thing erasing diversity. With winter
+    lows above 600 cells, the living tags still form one cluster.
+- **What diversity seems to need.** The tag has no effect of its own, and every birth can
+  shift it by up to 0.05, so mutation keeps filling gaps between lineages. A gap wider than
+  0.1 needs two lineages that stopped producing intermediates long ago. Neither mutation
+  rate nor milder seasons provide that. Experiments that might: E6 (viruses punish common
+  tags, which favours rare ones), and space, because a 128 × 128 world where free cells
+  wander mixes everything.
+
+**The two producer tests**
+
+| | gene test (photosynthesis > harvest) | intake test (> ½ of gross intake from light) |
+| --- | --- | --- |
+| E0, share of classified cells, summer (season > 0.5) | 66% | 83% |
+| E0, same, winter (season < −0.5) | 67% | 50% |
+| e8_mut_0.02, summer / winter | 45% / 48% | 85% / 54% |
+| e1_season_amp_6, summer / winter | 77% / 74% | 94% / 58% |
+| cells counted by neither (no intake that tick) | — | 8–31% |
+
+- **The gene test is steady through the year but splits cells that are much alike.** Mean
+  harvest and photosynthesis are both about 0.9. In e8_mut_0.02 it found no consumers at
+  all at the end of 2 seeds.
+- **The intake test follows the seasons.** The same cells count as producers in summer and
+  as consumers in winter, when light is low. In these runs it mostly measures the season
+  and the generalists' current diet, not two lineages.
+- **The intake test leaves many cells out.** Up to 31% of cells (e1_season_amp_6) have no
+  gross intake in a given tick. They are dormant, newborn, or living on leak or drain, and
+  count as neither.
+- **Neither test currently shows separate producer and consumer lineages.**
+
+Plots: `runs/<experiment>/overview.png`.

@@ -53,6 +53,12 @@ struct Census {
     int dormant = 0;    // dormant in the tick just run
     int producers = 0;  // photosynthesis gene > harvest gene
     int consumers = 0;
+    // Intake-based split, from Feed in the tick just run: a producer made more than half of
+    // its gross intake by photosynthesis. Cells with no gross intake (dormant, newborn, or
+    // living only on leak and drain) are counted in neither, but in no_intake.
+    int producers_intake = 0;
+    int consumers_intake = 0;
+    int no_intake = 0;
     TagClusters clusters;
     std::array<double, kGeneCount> gene_mean{};
     MatterTotals matter;

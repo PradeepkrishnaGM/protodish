@@ -50,6 +50,7 @@ struct CellArrays {
     // Per-tick results used by later phases of the same tick.
     std::vector<std::uint8_t> drained;   // lost matter to an attack this tick
     std::vector<double> gross_intake;    // Feed intake before leak (food taken + made)
+    std::vector<double> photo_intake;    // the part of gross_intake made by photosynthesis
     std::vector<double> feed_capacity;   // A + B + photosynthesis capacity this tick
 
     void resize(std::size_t n);

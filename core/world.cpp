@@ -75,6 +75,7 @@ void CellArrays::resize(std::size_t n) {
     eff_defense.assign(n, 0.0);
     drained.assign(n, 0);
     gross_intake.assign(n, 0.0);
+    photo_intake.assign(n, 0.0);
     feed_capacity.assign(n, 0.0);
 }
 
@@ -101,6 +102,7 @@ void CellArrays::move(std::size_t from, std::size_t to) {
     eff_defense[to] = eff_defense[from];
     drained[to] = drained[from];
     gross_intake[to] = gross_intake[from];
+    photo_intake[to] = photo_intake[from];
     feed_capacity[to] = feed_capacity[from];
     clear(from);
 }
@@ -128,6 +130,7 @@ void CellArrays::clear(std::size_t s) {
     eff_defense[s] = 0.0;
     drained[s] = 0;
     gross_intake[s] = 0.0;
+    photo_intake[s] = 0.0;
     feed_capacity[s] = 0.0;
 }
 

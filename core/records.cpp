@@ -86,6 +86,13 @@ Census take_census(const World& w) {
         } else {
             ++out.consumers;
         }
+        if (!(c.gross_intake[i] > 0.0)) {
+            ++out.no_intake;
+        } else if (c.photo_intake[i] > 0.5 * c.gross_intake[i]) {
+            ++out.producers_intake;
+        } else {
+            ++out.consumers_intake;
+        }
         tags.push_back(c.genes[kTag][i]);
         for (std::size_t k = 0; k < kGeneCount; ++k) out.gene_mean[k] += c.genes[k][i];
     }
@@ -112,7 +119,8 @@ Census take_census(const World& w) {
 void write_census_header(std::FILE* out) {
     std::fputs("tick,year,season,cells,free_cells,body_cells,bodies,"
                "bodies_2,bodies_3_4,bodies_5_8,bodies_9_16,bodies_17_32,bodies_33up,largest_body,"
-               "inner_cells,infected,dormant,producers,consumers,tag_clusters,tag_clusters_large,"
+               "inner_cells,infected,dormant,producers,consumers,"
+               "producers_intake,consumers_intake,no_intake,tag_clusters,tag_clusters_large,"
                "peak_cells,births_attached,births_released,births_mating,"
                "deaths_disaster,deaths_drained,deaths_starved",
                out);
@@ -125,9 +133,9 @@ void write_census_row(std::FILE* out, const Census& c, const IntervalCounts& n) 
                  static_cast<unsigned long long>(c.year), c.season, c.cells, c.free_cells,
                  c.body_cells, c.bodies);
     for (const int b : c.bodies_by_size) std::fprintf(out, ",%d", b);
-    std::fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,%d,%d", c.largest_body, c.inner_cells, c.infected,
-                 c.dormant, c.producers, c.consumers, c.clusters.all, c.clusters.large,
-                 n.peak_cells);
+    std::fprintf(out, ",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", c.largest_body, c.inner_cells,
+                 c.infected, c.dormant, c.producers, c.consumers, c.producers_intake,
+                 c.consumers_intake, c.no_intake, c.clusters.all, c.clusters.large, n.peak_cells);
     for (const auto b : n.births) std::fprintf(out, ",%llu", static_cast<unsigned long long>(b));
     for (const auto d : n.deaths) std::fprintf(out, ",%llu", static_cast<unsigned long long>(d));
     for (const double m : c.gene_mean) std::fprintf(out, ",%.6g", m);

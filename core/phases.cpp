@@ -141,6 +141,7 @@ void World::phase_sense() {
 
         cells_.drained[s] = 0;
         cells_.gross_intake[s] = 0.0;
+        cells_.photo_intake[s] = 0.0;
         cells_.feed_capacity[s] = 0.0;
     }
 }
@@ -296,6 +297,7 @@ void World::phase_feed() {
         const double gross_a = got_a[i] + made[i] * diet;
         const double gross_b = got_b[i] + made[i] * (1.0 - diet);
         cells_.gross_intake[s] = gross_a + gross_b;
+        cells_.photo_intake[s] = made[i];
 
         int occupied[8];
         int k = 0;

@@ -195,3 +195,20 @@ TEST_CASE("lineage log: every death and parent refers to a logged cell") {
     CHECK(parents_ok);
     CHECK(deaths_ok);
 }
+
+TEST_CASE("census: intake-based producers and consumers") {
+    evo::Params p = lab::params();
+    evo::World w(p, 5);
+    evo::Genome producer = lab::still(p);
+    producer[evo::kPhotosynthesis] = 1.0;  // makes food from minerals, eats nothing
+    REQUIRE(w.add_cell(at(32, 10), producer, 11, 11, 10));
+    REQUIRE(w.add_cell(at(32, 40), lab::eater(p, 0.5), 11, 11, 10));
+    REQUIRE(w.add_cell(at(32, 70), lab::still(p), 11, 11, 10));  // takes in nothing
+    w.step();
+    const evo::Census c = evo::take_census(w);
+    CHECK(c.producers_intake == 1);
+    CHECK(c.consumers_intake == 1);
+    REQUIRE(c.cells == 3);  // stores below 12: nobody divides
+    CHECK(c.no_intake == 1);
+    CHECK(c.producers == 1);  // the gene test agrees here
+}

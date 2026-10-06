@@ -291,9 +291,22 @@ measurements.
    cut), and each arc between cuts is a cluster. With no cut, all cells form one cluster.
    The diversity target counts only clusters of at least 10 cells. The census writes both
    counts (`tag_clusters` and `tag_clusters_large`).
-3. **Balanced run: the other two targets** are judged on the final census row: cells alive
-   at tick 50,000, and at least one producer (photosynthesis gene > harvest gene) and one
-   consumer.
+3. **Balanced run: "it lasts"** is judged at the end: cells alive at tick 50,000.
+4. **Diversity and both sides are judged over the final year** (changed after E0,
+   2026-10-06). The final year is the census rows with tick in (last − 2,000, last], which
+   is 20 rows. A target passes when it holds in at least half of them. The final-tick result
+   is reported too, but does not decide the target. Tick 50,000 is the first tick of a
+   spring, the population low, so the final tick alone was the harshest point to judge.
+5. **Two producer tests.** The target uses the RULES.md gene test: a producer's
+   photosynthesis gene is higher than its harvest gene. The census also reports an intake
+   test. Which one becomes the target is decided after seeing both:
+   - A producer made more than half of its gross Feed intake (M3-5: food taken plus food
+     made, before leak) by photosynthesis in the tick just run. Every other cell with
+     intake is a consumer.
+   - Cells with no gross intake that tick count as neither: dormant cells, daughters born
+     that tick, and cells living only on leak or drain. They are counted in `no_intake`.
+   - Drained food is not part of gross intake, so a pure predator lands in `no_intake`,
+     not among the consumers.
 
 ### Census (CSV, one row every `census_interval` = 100 ticks)
 
@@ -302,7 +315,8 @@ measurements.
   state hash.
 - Columns: tick, year (T / year_length), season, cells, free cells, cells in bodies,
   bodies, bodies by size (2, 3–4, 5–8, 9–16, 17–32, 33+), largest body, inner cells,
-  infected, dormant, producers, consumers, both tag-cluster counts, then the interval
+  infected, dormant, producers, consumers, the intake-based producers, consumers and
+  no-intake cells (M6-5), both tag-cluster counts, then the interval
   columns, the mean of each gene, matter totals and the hash.
 - Interval columns cover the ticks since the previous row: `peak_cells`, births by kind
   and deaths by cause.

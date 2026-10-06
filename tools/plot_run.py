@@ -97,8 +97,11 @@ def main():
                                   ("body_cells", "in bodies", SERIES[2])])
 
     style_axes(ax[1], "Producers and consumers", "cells")
-    plot_series(ax[1], runs, yl, [("producers", "producers", SERIES[2]),
-                                  ("consumers", "consumers", SERIES[0])])
+    specs = [("producers", "producers (gene)", SERIES[2]), ("consumers", "consumers (gene)", SERIES[0])]
+    if all("producers_intake" in r[0] for r in runs):
+        specs += [("producers_intake", "producers (intake)", SERIES[1]),
+                  ("consumers_intake", "consumers (intake)", SERIES[3])]
+    plot_series(ax[1], runs, yl, specs)
 
     style_axes(ax[2], "Infected cells", "cells")
     plot_series(ax[2], runs, yl, [("infected", "infected", SERIES[0])])
