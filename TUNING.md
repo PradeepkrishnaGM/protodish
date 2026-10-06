@@ -316,3 +316,112 @@ have matched windows.
   a median yearly low of 3,143 cells. Diversity is still 0%.
 
 Plots: `runs/<experiment>/overview.png`.
+
+## E4 Drain factor, E3 Bodies and E0 with 24 seeds (2026-10-06)
+
+**Questions.**
+- E4: does a drain factor of 3 let predators persist, or do they wipe out their prey and
+  starve (RULES.md open question 4)? The E6 and E7 extinctions were mostly drain crashes.
+- E3: can bodies grow beyond a few cells when all three changes are combined: the mild
+  world, `share_threshold` 10 → 5 and `cost_crowding` 0.03 → 0.01?
+- E0 with seeds 7–24: what is the baseline extinction rate? Six seeds may have been lucky.
+
+**Params.**
+- `e4_drain_2`: `drain_factor` 3 → 2.
+- `e4_drain_5`: `drain_factor` 3 → 5.
+- `e3_body_all`: as above.
+- E0: no changes, seeds 1–24.
+
+The E4 and E3 runs took 375 s and the 18 new E0 seeds 428 s.
+
+| experiment | runs | lasts | diverse | both sides, gene | both sides, intake | cycles | balanced |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline, seeds 1–24 | 24 | **20** (extinct: seeds 8, 10, 11, 23) | 0 | 20 | 20 | 19 (seed 15: ×3.08, y13) | 0 |
+| e4_drain_2 | 6 | 6 | 0 | 6 | 6 | 6 | 0 |
+| e4_drain_5 | 6 | **1** | 0 | 1 | 1 | 1 | 0 |
+| e3_body_all | 6 | 4 | 0 | 4 | 4 | 4 | 0 |
+
+Means over seeds, years 6–25, rows with living cells:
+
+| experiment | cells | yearly low, median (lowest) | harvest | photo | attack | defense | rows with ≥ 2 large clusters | largest body | in bodies | inner cells, most | gene producers | intake producers |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| e0_baseline (24 seeds) | 1,711 | 201 (1) | 0.90 | 0.94 | 0.40 | 0.54 | 9% | 9 | 8% | 0 | 66% | 72% |
+| e4_drain_2 | 2,059 | 368 (13) | 0.88 | 0.94 | 0.30 | 0.45 | 11% | 9 | 7% | 0 | 73% | 74% |
+| e4_drain_5 | 1,297 | 147 (1) | 0.91 | 0.89 | 0.48 | 0.46 | 2% | 8 | 9% | 0 | 46% | 72% |
+| e3_body_all | 3,114 | 2,096 (4) | 0.94 | 0.70 | 0.37 | 0.76 | 2% | 11 | 7% | 1 | 13% | 34% |
+
+How the extinctions happened (from the highest count in the run's last 2,500 ticks to 0):
+
+| run | extinct at tick | collapse from | season at that point | drained / starved deaths | mean attack / defense |
+| --- | --- | --- | --- | --- | --- |
+| e0 seed 8 | 13,391 | 3,283 at 10,900 | +0.31 | 8,406 / 4,578 | 0.46 / 0.36 |
+| e0 seed 10 | 28,269 | 1,039 at 26,000 | 0.00 | 1,424 / 1,443 | 0.50 / 0.40 |
+| e0 seed 11 | 19,697 | 2,591 at 18,600 | +0.95 | 5,951 / 3,388 | 0.55 / 0.39 |
+| e0 seed 23 | 35,570 | 1,552 at 34,900 | +0.31 | 1,158 / 1,866 | 0.61 / 0.49 |
+| e4_drain_5 seed 1 | 9,569 | 2,331 at 8,700 | +0.81 | 6,722 / 1,843 | 0.43 / 0.19 |
+| e4_drain_5 seed 2 | 45,695 | 302 at 45,100 | −0.31 | 45 / 552 | 0.89 / 0.81 |
+| e4_drain_5 seed 3 | 21,305 | 1,721 at 20,400 | +0.95 | 5,359 / 2,636 | 0.69 / 0.57 |
+| e4_drain_5 seed 4 | 13,519 | 2,363 at 12,200 | +0.59 | 9,283 / 3,378 | 0.46 / 0.38 |
+| e4_drain_5 seed 6 | 12,162 | 1,746 at 10,800 | +0.59 | 4,520 / 1,109 | 0.43 / 0.28 |
+| e3_body_all seed 3 | 15,374 | 3,477 at 14,100 | +0.31 | 12,374 / 3,265 | 0.78 / 0.63 |
+| e3_body_all seed 6 | 9,544 | 3,836 at 8,300 | +0.81 | 9,207 / 3,246 | 0.25 / 0.51 |
+
+**Answers**
+
+- **The baseline extinction rate is about 1 in 6: 4 of 24 runs** (17%; a 95% interval for
+  24 runs is roughly 5–37%). The first six seeds were lucky.
+  - All four E0 extinctions started in spring or summer, with mean attack above mean
+    defense.
+  - In two of them drained deaths clearly outnumbered starved ones. In the other two
+    (seeds 10 and 23) the two were about equal: the prey ran out and the predators then
+    starved.
+  - So under the defaults the main risk is a predator-prey crash, not winter.
+- **E4: the drain factor decides whether predators destroy the world.**
+  - At 5, five of six runs died, mostly in fast summer crashes. Drain caused 2.0–4.1×
+    as many deaths as starvation, except in seed 2, which died slowly in winter after
+    an arms race (attack 0.89, defense 0.81).
+  - At 2, all 6 runs last and cycle. Attack falls to 0.30, and the median yearly low
+    nearly doubles (368 against 201).
+  - Six seeds can't show whether 2 removes the E0 risk of 1 in 6. Running about 24 seeds
+    at drain 2 would answer that.
+  - Open question 4: at 3, predators persist but crash their prey in about 1 run in 6.
+    At 5 they nearly always do. At 2 they persist at lower attack and no crash happened.
+- **E3: bodies do not grow even with all three changes.**
+  - The largest body is 11 cells, 7% of cells are in bodies, mean adhesion is 0.07, and
+    there was at most 1 inner cell. That is no better than the mild world alone (M4 found
+    up to 11 cells) or than E9's mild bright world (19).
+  - As agreed, the three changes are not tested one at a time, because the combined run
+    showed no growth.
+  - Two of 6 runs went extinct in drain crashes. Gene producers fall to 13%: in the mild
+    world harvest stays high (0.94) and photosynthesis drops (0.70).
+- **Diversity is still 0% everywhere.**
+
+Plots: `runs/<experiment>/overview.png` (E0 now shows all 24 seeds).
+
+## Proposed diversity experiments D0–D3 (2026-10-06)
+
+**Why diversity fails so far.** In E0 a cell lives a median 209 ticks, about 10
+generations a year. At the default mutation rate, two clonal lineages have to coexist for
+roughly 10–20 years before their tags drift more than 0.1 apart. Meanwhile:
+- sweeps, predator crashes and winters merge everything back into one lineage much sooner;
+- at the evolved motility (mean 0.68), a lineage spreads across the 128-site grid in
+  about 10 years.
+
+Diversity therefore needs niches that last: places or ways of living that keep lineages
+apart for decades.
+
+| # | experiment | change | needs a RULES.md change? | status |
+| --- | --- | --- | --- | --- |
+| D0 | Three starting groups (diagnostic) | The 50 ancestors are split into 3 groups with tags spread evenly around the circle. Tests whether diversity lasts once it exists, separating "never arises" from "doesn't persist" | Only if adopted: RULES.md starts from 50 identical cells. Option `initial_tag_groups`, default 1 | approved, run |
+| D1a | Stronger climate belts | `temp_latitude_amp` 5 → 10, `light_latitude_amp` 0.2 → 0.35 | No, params only | approved, run |
+| D1b | Belts with milder seasons | D1a plus `temp_season_amp` 10 → 6 | No | not yet |
+| D1c | Fertile spark patches | Sparks mostly inside a few fixed, seeded patches | Yes (the Sparks rule) | skipped for now |
+| D2a | Dearer movement | `cost_move` 0.2 → 0.5 | No | approved, run combined with D1a |
+| D2b | Slow ancestors | `ancestor.motility` 0.5 → 0.1 plus `cost_move` 0.5 | No to run it; yes if adopted (starting values) | not yet |
+| D3a | Both feeding modes dearer | `cost_harvest` 0.2 → 0.4, `cost_photosynthesis` 0.3 → 0.5. A weak test: separate linear costs don't penalise doing both | No | not yet |
+| D3b | Generalist cost | New upkeep item k × harvest × photosynthesis, at k = 0.4 and 0.8. Option `cost_generalist`, default 0 | Yes if adopted: a new upkeep row | approved, run |
+
+Expectations:
+- Slower movement alone is probably not enough: motility 0.68 → 0.2 only slows spreading
+  by about 1.8×.
+- D3b is the most direct test of separate producer and consumer lineages.
