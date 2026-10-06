@@ -123,6 +123,12 @@ std::string validate_params(const Params& p) {
         p.supply_mineral_norm <= 0.0 || p.move_food_norm <= 0.0 || p.neighbor_norm <= 0.0) {
         return "normalising widths and scales must be positive";
     }
+    for (const double c : {p.outbreak_chance, p.spread_chance, p.drift_chance, p.recovery_chance}) {
+        if (!(c >= 0.0 && c <= 1.0)) return "virus chances must be in [0, 1]";
+    }
+    if (p.virus_match < 0.0 || p.virus_match > 0.5 || p.drift_step < 0.0 || p.drift_step > 0.5) {
+        return "virus_match and drift_step must be in [0, 0.5]";
+    }
     // Division moves clone_cost of each food into the daughter's stores and body mass.
     if (p.clone_cost != p.daughter_store + p.body_mass_a ||
         p.clone_cost != p.daughter_store + p.body_mass_b) {

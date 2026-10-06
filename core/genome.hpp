@@ -74,4 +74,10 @@ inline double tag_distance(double a, double b) {
     return d < 0.5 ? d : 1.0 - d;
 }
 
+// Wraps a tag into [0, 1).
+inline double wrap_tag(double v) {
+    v -= std::floor(v);
+    return v < 1.0 ? v : 0.0;  // -tiny wraps to 1.0 after rounding
+}
+
 }  // namespace evo

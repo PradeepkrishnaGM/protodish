@@ -84,13 +84,15 @@ int main(int argc, char** argv) {
 
     evo::World world(params, seed);
     std::fprintf(out,
-                 "tick,season,cells,births,deaths,food_a,food_b,minerals,in_cells,total,hash\n");
+                 "tick,season,cells,infected,births,deaths,food_a,food_b,minerals,in_cells,total,hash\n");
     std::uint64_t births = 0, deaths = 0;  // since the previous row
     auto write_row = [&] {
         const evo::MatterTotals m = world.matter();
-        std::fprintf(out, "%llu,%.6f,%d,%llu,%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%016llx\n",
+        int infected = 0;
+        for (const auto v : world.cells().infected) infected += v;
+        std::fprintf(out, "%llu,%.6f,%d,%d,%llu,%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%016llx\n",
                      static_cast<unsigned long long>(world.tick()),
-                     world.climate().season(world.tick()), world.cell_count(),
+                     world.climate().season(world.tick()), world.cell_count(), infected,
                      static_cast<unsigned long long>(births),
                      static_cast<unsigned long long>(deaths), m.food_a, m.food_b, m.minerals,
                      m.cells, m.total(), static_cast<unsigned long long>(world.state_hash()));

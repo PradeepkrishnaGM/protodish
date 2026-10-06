@@ -64,6 +64,8 @@ void CellArrays::resize(std::size_t n) {
     cooldown.assign(n, 0);
     stress.assign(n, 0.0);
     moved.assign(n, 0);
+    infected.assign(n, 0);
+    virus_tag.assign(n, 0.0);
     for (auto& g : genes) g.assign(n, 0.0);
     awake.assign(n, 0);
     thermal_eff.assign(n, 0.0);
@@ -88,6 +90,8 @@ void CellArrays::move(std::size_t from, std::size_t to) {
     cooldown[to] = cooldown[from];
     stress[to] = stress[from];
     moved[to] = moved[from];
+    infected[to] = infected[from];
+    virus_tag[to] = virus_tag[from];
     for (auto& g : genes) g[to] = g[from];
     awake[to] = awake[from];
     thermal_eff[to] = thermal_eff[from];
@@ -113,6 +117,8 @@ void CellArrays::clear(std::size_t s) {
     cooldown[s] = 0;
     stress[s] = 0.0;
     moved[s] = 0;
+    infected[s] = 0;
+    virus_tag[s] = 0.0;
     for (auto& g : genes) g[s] = 0.0;
     awake[s] = 0;
     thermal_eff[s] = 0.0;
@@ -221,6 +227,12 @@ void World::set_cell_cooldown(int site, std::uint32_t cooldown) {
 
 void World::set_cell_stress(int site, double stress) {
     cells_.stress[static_cast<std::size_t>(site)] = stress;
+}
+
+void World::set_cell_virus(int site, double tag) {
+    const auto s = static_cast<std::size_t>(site);
+    cells_.infected[s] = tag >= 0.0 ? 1 : 0;
+    cells_.virus_tag[s] = tag >= 0.0 ? wrap_tag(tag) : 0.0;
 }
 
 int World::direction(int from, int to) const {
@@ -395,6 +407,8 @@ std::uint64_t World::state_hash() const {
     h.array(cells_.age);
     h.array(cells_.cooldown);
     h.array(cells_.stress);
+    h.array(cells_.infected);
+    h.array(cells_.virus_tag);
     for (const auto& g : cells_.genes) h.array(g);
     return h.digest();
 }

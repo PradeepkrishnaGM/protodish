@@ -117,6 +117,7 @@ TEST_CASE("disaster fires on its interval and kills a wrapped 24 x 24 square") {
     p.cost_harvest = 0.0;
     p.cost_crowding = 0.0;
     p.cost_aging = 0.0;
+    p.outbreak_chance = 0.0;  // a virus would sweep this grid of clones
     evo::Genome still = p.ancestor;
     still[evo::kMotility] = 0.0;
     still[evo::kHarvest] = 0.0;

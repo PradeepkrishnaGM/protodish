@@ -35,6 +35,8 @@ struct CellArrays {
     std::vector<std::uint32_t> cooldown;
     std::vector<double> stress;
     std::vector<std::uint8_t> moved;  // moved this tick
+    std::vector<std::uint8_t> infected;  // carries a virus
+    std::vector<double> virus_tag;       // the virus's tag, meaningful only when infected
     std::array<std::vector<double>, kGeneCount> genes;
 
     // Sense results for the current tick; they travel with the cell (DECISIONS M2-14).
@@ -123,6 +125,8 @@ public:
     void set_cell_stores(int site, double store_a, double store_b);
     void set_cell_cooldown(int site, std::uint32_t cooldown);
     void set_cell_stress(int site, double stress);
+    // Infects a living cell with a virus carrying `tag`, or makes it healthy if tag < 0.
+    void set_cell_virus(int site, double tag);
     // Bonds two living, adjacent cells. Returns false otherwise.
     bool add_bond(int a, int b);
 
@@ -152,7 +156,7 @@ private:
     void phase_feed();
     void phase_attack();
     void phase_share();
-    void phase_infect() {}  // M5
+    void phase_infect();
     void phase_upkeep();
     void phase_divide();
     void phase_record() {}  // events are collected by the phases; files are written in M6

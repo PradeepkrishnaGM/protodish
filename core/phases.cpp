@@ -383,8 +383,8 @@ void World::phase_upkeep() {
                              params_.cost_aging * cells_.age[s] +
                              params_.cost_move * cells_.moved[s] +
                              params_.cost_photosynthesis * g[kPhotosynthesis][s] +
-                             params_.cost_resistance * g[kResistance][s];
-        // Infection cost arrives in M5.
+                             params_.cost_resistance * g[kResistance][s] +
+                             params_.cost_infection * cells_.infected[s];
         cost[i] = total * (params_.upkeep_temp_base +
                            site_temperature(site) / params_.upkeep_temp_scale) *
                   (cells_.awake[s] ? 1.0 : params_.dormant_upkeep_factor);
@@ -415,7 +415,7 @@ void World::phase_upkeep() {
         ++cells_.age[s];
         double stress = cells_.stress[s] * params_.stress_fade;
         if (cells_.drained[s]) stress += params_.stress_drained;
-        // Infection stress arrives in M5.
+        if (cells_.infected[s]) stress += params_.stress_infected;
         if (cells_.feed_capacity[s] > 0.0 &&
             cells_.gross_intake[s] < params_.poor_intake * cells_.feed_capacity[s]) {
             stress += params_.stress_poor;
@@ -463,6 +463,69 @@ void World::phase_share() {
     for (std::size_t i = 0; i < n_cells; ++i) {
         const auto s = static_cast<std::size_t>(cell_sites_[i]);
         if (get_a[s] > 0.0 || get_b[s] > 0.0) add_to_store(s, get_a[s], get_b[s]);
+    }
+}
+
+// ---- 7. Infect ----
+
+void World::phase_infect() {
+    collect_cell_sites();
+    const auto& tag = cells_.genes[kTag];
+    const auto& resistance = cells_.genes[kResistance];
+
+    // Gather: every rule reads the infection state at the start of the phase, and dormant
+    // cells neither catch, pass nor clear a virus (DECISIONS M5-1, M5-2).
+    std::vector<Intent> intents;
+    std::vector<int> carriers;  // infected and awake at the start of the phase
+    for (const int site : cell_sites_) {
+        const auto s = static_cast<std::size_t>(site);
+        if (!cells_.infected[s] || !cells_.awake[s]) continue;
+        carriers.push_back(site);
+        for (int d = 0; d < 8; ++d) {
+            const int nb = neighbor(site, d);
+            const auto n = static_cast<std::size_t>(nb);
+            if (!cells_.alive[n] || cells_.infected[n] || !cells_.awake[n]) continue;
+            if (tag_distance(cells_.virus_tag[s], tag[n]) > params_.virus_match) continue;
+            if (rng_.chance(params_.spread_chance * (1.0 - resistance[n]))) intents.push_back({nb, site});
+        }
+    }
+
+    // A target reached by several sources catches one of them, picked at random (M5-3).
+    // Drift applies to the copy that passes (M5-4).
+    const std::vector<Intent> winners = resolve_conflicts(std::move(intents), rng_);
+    for (const Intent& w : winners) {
+        const auto t = static_cast<std::size_t>(w.target);
+        double v = cells_.virus_tag[static_cast<std::size_t>(w.source)];
+        if (rng_.chance(params_.drift_chance)) {
+            v = wrap_tag(v + (2.0 * rng_.uniform() - 1.0) * params_.drift_step);
+        }
+        cells_.infected[t] = 1;
+        cells_.virus_tag[t] = v;
+    }
+
+    for (const int site : carriers) {
+        const auto s = static_cast<std::size_t>(site);
+        if (rng_.chance(params_.recovery_chance * resistance[s])) {
+            cells_.infected[s] = 0;
+            cells_.virus_tag[s] = 0.0;
+        }
+    }
+
+    // Outbreaks: healthy awake cells that did not catch a virus this tick. Cells that just
+    // recovered were infected at the start of the phase, so they are not candidates.
+    std::size_t wi = 0;
+    std::size_t ci = 0;
+    for (const int site : cell_sites_) {
+        const auto s = static_cast<std::size_t>(site);
+        while (wi < winners.size() && winners[wi].target < site) ++wi;
+        while (ci < carriers.size() && carriers[ci] < site) ++ci;
+        const bool caught = wi < winners.size() && winners[wi].target == site;
+        const bool carrier = ci < carriers.size() && carriers[ci] == site;
+        if (caught || carrier || cells_.infected[s] || !cells_.awake[s]) continue;
+        if (rng_.chance(params_.outbreak_chance)) {
+            cells_.infected[s] = 1;
+            cells_.virus_tag[s] = tag[s];
+        }
     }
 }
 

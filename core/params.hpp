@@ -66,6 +66,13 @@ namespace evo {
     X(double, drain_factor, 3.0)              /* drain = factor × (attack − defense) × eff */ \
     X(double, attacker_keep, 0.5)             /* share of a drain the attacker keeps */       \
     X(double, satiation_multiple, 2.0)        /* max total drain = this × room in stores */   \
+    /* Infect */                                                                              \
+    X(double, virus_match, 0.05)              /* max tag distance a virus can infect */       \
+    X(double, outbreak_chance, 1e-6)          /* per healthy awake cell per tick */           \
+    X(double, spread_chance, 0.2)             /* × (1 − neighbor's resistance) */             \
+    X(double, drift_chance, 0.05)             /* per passage to a new cell */                 \
+    X(double, drift_step, 0.02)               /* max shift of a drifting virus tag (wraps) */ \
+    X(double, recovery_chance, 0.05)          /* × resistance, per tick */                    \
     /* Upkeep (per tick) */                                                                   \
     X(double, cost_alive, 0.2)                                                                \
     X(double, cost_harvest, 0.2)              /* × harvest */                                 \

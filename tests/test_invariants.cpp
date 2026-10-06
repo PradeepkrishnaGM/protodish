@@ -66,6 +66,7 @@ void require_ranges(const evo::World& w) {
         ok &= c.store_a[s] >= 0.0 && c.store_a[s] <= store_max;
         ok &= c.store_b[s] >= 0.0 && c.store_b[s] <= store_max;
         ok &= c.stress[s] >= 0.0 && c.stress[s] <= 1.0;
+        ok &= !c.infected[s] || (c.virus_tag[s] >= 0.0 && c.virus_tag[s] < 1.0);
         for (std::size_t i = 0; i < evo::kGeneCount; ++i) {
             const auto& info = evo::kGeneInfo[i];
             const double v = c.genes[i][s];
@@ -83,7 +84,7 @@ void require_ranges(const evo::World& w) {
     for (int s = 0; s < w.site_count(); ++s) {
         const unsigned mask = c.bonds[static_cast<std::size_t>(s)];
         if (!c.alive[static_cast<std::size_t>(s)]) {
-            ok &= mask == 0;
+            ok &= mask == 0 && c.infected[static_cast<std::size_t>(s)] == 0;
             continue;
         }
         for (int d = 0; d < 8; ++d) {
@@ -94,7 +95,7 @@ void require_ranges(const evo::World& w) {
             ok &= !here || c.alive[t];
         }
         if (!ok) {
-            FAIL_CHECK("bond inconsistency at site " << s << ", tick " << w.tick());
+            FAIL_CHECK("bond or infection inconsistency at site " << s << ", tick " << w.tick());
             break;
         }
     }
@@ -216,4 +217,54 @@ TEST_CASE("invariant: body scenario; bonds stay consistent while bodies grow, sh
     CHECK(matings > 0);
     CHECK(bonded_deaths > 1000);
     CHECK(max_body >= 6);
+}
+
+TEST_CASE("invariant: virus scenario; matter and ranges hold while viruses break out, spread, drift and clear" *
+          doctest::test_suite("slow")) {
+    // The mild body world, with outbreaks 1,000 times more common and some resistance,
+    // so every virus rule fires often. Coverage, not balance.
+    evo::Params p;
+    p.initial_cells = 300;
+    p.temp_season_amp = 0.0;
+    p.temp_latitude_amp = 0.0;
+    p.light_season_amp = 0.0;
+    p.light_latitude_amp = 0.0;
+    p.spark_base = 1500.0;
+    p.spark_season_amp = 0.0;
+    p.outbreak_chance = 1e-3;
+    p.ancestor[evo::kAdhesion] = 0.6;
+    p.ancestor[evo::kShare] = 0.5;
+    p.ancestor[evo::kPhotosynthesis] = 0.3;
+    p.ancestor[evo::kResistance] = 0.3;
+
+    evo::World w(p, 6);
+    const double start = w.matter().total();
+    int peak_infected = 0, recoveries = 0, drifted_samples = 0;
+    std::vector<std::uint8_t> before;
+    std::vector<std::uint64_t> ids_before;
+    for (int t = 0; t < 3000 && w.cell_count() > 0; ++t) {
+        before = w.cells().infected;
+        ids_before = w.cells().id;
+        w.step();
+        REQUIRE(std::fabs(w.matter().total() - start) <= kRelTol * start);
+        require_ranges(w);
+        const auto& c = w.cells();
+        int infected = 0;
+        for (std::size_t s = 0; s < c.alive.size(); ++s) {
+            if (!c.alive[s]) continue;
+            infected += c.infected[s];
+            // Same cell, still in place, infected before and healthy now: it recovered.
+            recoveries += before[s] && !c.infected[s] && ids_before[s] == c.id[s];
+            if (t % 100 == 0 && c.infected[s]) {
+                drifted_samples += evo::tag_distance(c.virus_tag[s], c.genes[evo::kTag][s]) > 0.0;
+            }
+        }
+        peak_infected = std::max(peak_infected, infected);
+    }
+    MESSAGE("peak infected " << peak_infected << ", recoveries " << recoveries
+                             << ", sampled viruses differing from their host's tag " << drifted_samples
+                             << "; cells at end " << w.cell_count());
+    CHECK(peak_infected > 50);
+    CHECK(recoveries > 100);
+    CHECK(drifted_samples > 10);
 }

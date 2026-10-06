@@ -221,3 +221,58 @@ population collapses every summer. Balance is left for M6 tuning.
 are in bodies of 2–4 cells, mean adhesion is about 0.05, and matings are rare (1–3 per run). In a
 mild test world, bodies reach about 11 cells at most. Adhesion ≥ 0.9 dies out, and inner cells
 almost never form, because anchored cells exhaust the food within reach.
+
+## M5 Viruses (approved 2026-10-06)
+
+1. **One snapshot per Infect phase.** Every virus rule reads the infection state at the start
+   of the phase. A cell infected this tick cannot pass the virus on until the next tick. A
+   cell that recovers this tick still makes its spread attempts this tick. Burden and
+   infection stress are judged at Upkeep, so a new case pays this tick and a cell that
+   recovered this tick does not.
+2. **Dormant infected cells are frozen.** They neither catch, pass nor clear a virus
+   (consistent with M3-7). They still pay the infection cost inside their one-tenth upkeep.
+   Their stress is frozen, so they gain no infection stress.
+3. **Several viruses reach one cell.** Each successful spread attempt is an intent. If more
+   than one reaches the same healthy cell, the RNG picks one, as in Move and Divide.
+4. **Drift happens after the match.** The match is checked with the source's virus tag, then
+   the passing copy may drift. A drifted virus that no longer matches its new host stays in
+   that host. The source keeps its own tag. Outbreak viruses carry the host's tag exactly
+   and do not drift.
+5. **Viruses carry no matter.** The virus dies with its host and moves with it.
+   Daughters are born healthy.
+6. **Spread and resistance use the raw genes.** Role split does not adjust resistance.
+
+### Engineering choices (M5)
+
+- **Storage.** `infected` (uint8) and `virus_tag` (double) per site. Both are in the state hash.
+- **Fixed draw order (M5).** All in one Infect phase:
+  - Spread: cells infected and awake at the start of the phase, in ascending site order.
+    For each, directions N to NW, with one draw per awake, healthy, matching neighbor.
+  - Conflicts: in ascending target order, one draw per target with more than one source.
+  - Drift: in ascending target order, one draw for the chance and, if it hits, one for the shift.
+  - Recovery: one draw per carrier from the spread step, in ascending order.
+  - Outbreak: one draw per awake cell that was healthy at the start of the phase and did not
+    catch a virus, in ascending order.
+  - As elsewhere, a draw is made even when its chance is 0.
+- **CLI.** The summary CSV gains an `infected` column after `cells`.
+- **Test change.** The M1 disaster test fills the grid with 16,384 clones on 1 A + 1 B. It now
+  sets `outbreak_chance = 0`, because an outbreak sweeps the grid and the burden starves the
+  cells, which is not what that test is about.
+
+**M5 result (accepted 2026-10-06).** Three seeds × 10,000 ticks, default world:
+
+| outbreak chance | 0 | 1e-6 (default) | 1e-4 |
+| --- | --- | --- | --- |
+| epidemics (runs of ticks with ≥ 1 infected cell) | 0 | 5–8 | 1–6, mostly endemic |
+| ticks with a virus present | 0 | 34–48% | 96–100% |
+| peak infected cells | 0 | 860–2,240 | 1,690–2,890 |
+| infected share of cell-ticks | 0 | 4–11% | 22–29% |
+| mean cells, ticks 5,000–10,000 | 1,450–1,760 | 1,750–2,170 | 1,530–2,020 |
+| mean resistance at 10,000 | 0.03–0.10 | 0.06–0.08 | 0.04–0.06 |
+
+No run went extinct. At the default rate, an epidemic lasts up to about 2,800 ticks and dies
+out. Neither rate gave resistance a clear advantage within 10,000 ticks. In the mild body
+world (constant 15 °C, 1,500 sparks), mean population in ticks 5,000–10,000 was 3,070–3,720
+without viruses, 2,600–3,990 at 1e-6 and 2,480–2,860 at 1e-4. Different settings change the
+RNG stream, so each comparison is between different histories. These are indications, not
+measurements.
