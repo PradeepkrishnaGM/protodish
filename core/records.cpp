@@ -56,7 +56,7 @@ void IntervalCounts::add_tick(const World& w) {
 
 void IntervalCounts::reset() { *this = IntervalCounts{}; }
 
-Census take_census(const World& w) {
+Census take_census(const World& w, bool with_hash) {
     const Params& p = w.params();
     const CellArrays& c = w.cells();
     Census out;
@@ -65,7 +65,7 @@ Census take_census(const World& w) {
     out.season = w.climate().season(w.tick());
     out.cells = w.cell_count();
     out.matter = w.matter();
-    out.hash = w.state_hash();
+    if (with_hash) out.hash = w.state_hash();
 
     const std::vector<int> label = w.body_labels();
     std::vector<int> group_size;

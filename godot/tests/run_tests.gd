@@ -28,6 +28,8 @@ func _initialize() -> void:
 	test_bad_params()
 	test_end_world()
 	test_legends()
+	test_stats()
+	test_history()
 
 	if failures == 0:
 		print("all godot tests passed")
@@ -173,6 +175,52 @@ func test_render_modes() -> void:
 	w.render(ProtodishWorld.VIEW_GROUND)
 	check(w.get_state_hash() == hash_before, "rendering does not change the world")
 	check(count_non_empty(w.render(99)) == w.get_cell_count(), "an unknown mode paints lineage")
+
+
+func test_stats() -> void:
+	var w := ProtodishWorld.new()
+	w.reset(1)
+	w.step(1500)
+	var s := w.get_stats()
+	for key in ["tick", "year_length", "season", "temp_min", "temp_max", "light_min", "light_max", "cells",
+			"free_cells", "body_cells", "bodies", "largest_body", "clusters", "clusters_large",
+			"cluster_min_size", "producers", "consumers", "infected", "matter_cells", "matter_food_a",
+			"matter_food_b", "matter_minerals", "matter_total"]:
+		check(s.has(key), "stats has " + key)
+	check(s["tick"] == 1500 and s["cells"] == w.get_cell_count(), "stats tick and cells")
+	check(s["free_cells"] + s["body_cells"] == s["cells"], "free + in bodies = cells")
+	check(s["producers"] + s["consumers"] == s["cells"], "producers + consumers = cells")
+	check(s["clusters_large"] <= s["clusters"], "large clusters are a subset")
+	check(absf(s["season"] - sin(TAU * 1499 / 2000.0)) < 1e-9, "season of the tick just run")
+	check(0.0 <= s["temp_min"] and s["temp_min"] <= s["temp_max"] and s["temp_max"] <= 30.0, "temperature range")
+	check(0.0 <= s["light_min"] and s["light_min"] <= s["light_max"] and s["light_max"] <= 1.0, "light range")
+	var parts: float = s["matter_cells"] + s["matter_food_a"] + s["matter_food_b"] + s["matter_minerals"]
+	check(absf(parts - s["matter_total"]) < 1e-6 and absf(s["matter_total"] - w.get_total_matter()) < 1e-6,
+		"matter parts add up to the total")
+	check(w.get_state_hash() == run_hash(1, 1500), "statistics do not change the world")
+
+
+func test_history() -> void:
+	var w := ProtodishWorld.new()
+	w.reset(4)
+	var h := w.get_history(10000)
+	check((h["ticks"] as PackedInt64Array).size() == 1 and h["cells"][0] == 50, "history starts with the ancestors")
+	w.step(600)
+	h = w.get_history(10000)
+	var cells: PackedInt32Array = h["cells"]
+	check(cells.size() == 601, "one point per tick (%d)" % cells.size())
+	check(h["ticks"][600] == 600 and cells[600] == w.get_cell_count(), "last point is the current state")
+	var peak := 0
+	for v in cells:
+		peak = maxi(peak, v)
+	h = w.get_history(7)
+	check((h["cells"] as PackedInt32Array).size() <= 7, "downsampled to at most 7 points")
+	var peak7 := 0
+	for v in (h["cells"] as PackedInt32Array):
+		peak7 = maxi(peak7, v)
+	check(peak7 == peak, "downsampling keeps the peak (%d vs %d)" % [peak7, peak])
+	w.reset(4)
+	check((w.get_history(100)["ticks"] as PackedInt64Array).size() == 1, "reset clears the history")
 
 
 func count_non_empty(img: Image) -> int:

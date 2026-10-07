@@ -9,9 +9,11 @@
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
 
+#include "history.hpp"
 #include "view.hpp"
 #include "world.hpp"
 
@@ -69,12 +71,21 @@ public:
     // low, high}. One color is a swatch; several are a gradient from low to high.
     Array get_legend(int64_t mode) const;
 
+    // Statistics panel (RULES.md, "Statistics"): a Dictionary built from the census, plus
+    // the season and the temperature and light range of the tick just run. Keys are listed
+    // in protodish_world.cpp.
+    Dictionary get_stats() const;
+    // Population graph: {ticks: PackedInt64Array, cells, producers, infected:
+    // PackedInt32Array}, at most max_points points, each the peak of the ticks it covers.
+    Dictionary get_history(int64_t max_points) const;
+
 protected:
     static void _bind_methods();
 
 private:
     std::unique_ptr<evo::World> world_;
     PackedByteArray pixels_;
+    evo::PopulationHistory history_;  // after every tick, from the starting state on
     int64_t ended_at_ = -1;
 };
 

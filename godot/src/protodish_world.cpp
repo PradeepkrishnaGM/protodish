@@ -1,5 +1,6 @@
 #include "protodish_world.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <string>
@@ -7,6 +8,10 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_int64_array.hpp>
+
+#include "records.hpp"
 
 namespace godot {
 
@@ -32,6 +37,8 @@ String ProtodishWorld::reset(int64_t seed, const String& params_text) {
     world_ = std::make_unique<evo::World>(params, static_cast<uint64_t>(seed));
     pixels_.resize(static_cast<int64_t>(world_->site_count()) * 3);
     ended_at_ = -1;
+    history_.clear();
+    history_.record(*world_);
     return String();
 }
 
@@ -39,6 +46,7 @@ int64_t ProtodishWorld::step(int64_t n) {
     int64_t ran = 0;
     while (ran < n && ended_at_ < 0 && !world_->extinct_at()) {
         world_->step();
+        history_.record(*world_);
         ++ran;
     }
     return ran;
@@ -96,6 +104,62 @@ Array ProtodishWorld::get_legend(int64_t mode) const {
     return out;
 }
 
+Dictionary ProtodishWorld::get_stats() const {
+    const evo::Census c = evo::take_census(*world_, /*with_hash=*/false);
+    const evo::Params& p = world_->params();
+    double t_min = world_->row_temperature(0), t_max = t_min;
+    double l_min = world_->row_light(0), l_max = l_min;
+    for (int row = 1; row < p.grid_height; ++row) {
+        t_min = std::min(t_min, world_->row_temperature(row));
+        t_max = std::max(t_max, world_->row_temperature(row));
+        l_min = std::min(l_min, world_->row_light(row));
+        l_max = std::max(l_max, world_->row_light(row));
+    }
+    Dictionary d;
+    d["tick"] = static_cast<int64_t>(c.tick);
+    d["year_length"] = p.year_length;
+    d["season"] = world_->season();  // of the tick just run (tick 0 before the first)
+    d["temp_min"] = t_min;
+    d["temp_max"] = t_max;
+    d["light_min"] = l_min;
+    d["light_max"] = l_max;
+    d["cells"] = c.cells;
+    d["free_cells"] = c.free_cells;
+    d["body_cells"] = c.body_cells;
+    d["bodies"] = c.bodies;
+    d["largest_body"] = c.largest_body;
+    d["clusters"] = c.clusters.all;
+    d["clusters_large"] = c.clusters.large;
+    d["cluster_min_size"] = p.cluster_min_size;
+    d["producers"] = c.producers;
+    d["consumers"] = c.consumers;
+    d["infected"] = c.infected;
+    d["matter_cells"] = c.matter.cells;
+    d["matter_food_a"] = c.matter.food_a;
+    d["matter_food_b"] = c.matter.food_b;
+    d["matter_minerals"] = c.matter.minerals;
+    d["matter_total"] = c.matter.total();
+    return d;
+}
+
+Dictionary ProtodishWorld::get_history(int64_t max_points) const {
+    const auto s = history_.downsample(static_cast<std::size_t>(std::max<int64_t>(max_points, 1)));
+    PackedInt64Array ticks;
+    PackedInt32Array cells, producers, infected;
+    for (std::size_t k = 0; k < s.tick.size(); ++k) {
+        ticks.push_back(static_cast<int64_t>(s.tick[k]));
+        cells.push_back(s.cells[k]);
+        producers.push_back(s.producers[k]);
+        infected.push_back(s.infected[k]);
+    }
+    Dictionary d;
+    d["ticks"] = ticks;
+    d["cells"] = cells;
+    d["producers"] = producers;
+    d["infected"] = infected;
+    return d;
+}
+
 void ProtodishWorld::_bind_methods() {
     ClassDB::bind_method(D_METHOD("reset", "seed", "params_text"), &ProtodishWorld::reset, DEFVAL(String()));
     ClassDB::bind_method(D_METHOD("step", "n"), &ProtodishWorld::step);
@@ -114,6 +178,8 @@ void ProtodishWorld::_bind_methods() {
     ClassDB::bind_method(D_METHOD("render", "mode"), &ProtodishWorld::render);
     ClassDB::bind_method(D_METHOD("get_view_mode_names"), &ProtodishWorld::get_view_mode_names);
     ClassDB::bind_method(D_METHOD("get_legend", "mode"), &ProtodishWorld::get_legend);
+    ClassDB::bind_method(D_METHOD("get_stats"), &ProtodishWorld::get_stats);
+    ClassDB::bind_method(D_METHOD("get_history", "max_points"), &ProtodishWorld::get_history);
     BIND_ENUM_CONSTANT(VIEW_LINEAGE);
     BIND_ENUM_CONSTANT(VIEW_ENERGY);
     BIND_ENUM_CONSTANT(VIEW_FEEDING);

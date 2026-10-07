@@ -166,7 +166,7 @@ result is unchanged: lasts 6, diverse 0, both sides 6 (intake 6), cycles 6, bala
   at tick 50,000, the 603 living tags span 0.50–0.70 with no gap wider than 0.025. The
   population is one continuous smear of tags, and the yearly winter bottleneck (down to a
   handful of cells) prunes it back to one lineage.
-- **The end of a run falls at a trough.** Tick 50,000 is the first tick of a spring
+- **The end of a run falls at a trough.** Tick 50,000 is mid-spring
   (season 0, rising), right after winter, when the population is smallest. Judging
   diversity and "both sides" at that moment is the strictest possible choice.
 - **"Both sides" passes on a technicality.** Mean harvest (0.85–0.95) and mean

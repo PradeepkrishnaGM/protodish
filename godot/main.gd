@@ -1,6 +1,6 @@
 extends Control
-## The app: controls on the left, the world view in the middle (RULES.md, "The application").
-## Statistics (M7d) and click-to-inspect (M7e) come later.
+## The app: controls on the left, the world view in the middle, statistics on the right
+## (RULES.md, "The application"). Click-to-inspect (M7e) comes later.
 
 const PRESET_DIR := "res://presets"
 const DEFAULT_PRESET := "default.params"  ## listed first
@@ -10,10 +10,13 @@ const GROUND_LAYERS := ["All layers", "Food A", "Food B", "Minerals"]
 # Preloaded rather than class_name, which needs the editor's class cache to resolve.
 const WorldView := preload("res://world_view.gd")
 const Legend := preload("res://legend.gd")
+const StatsPanel := preload("res://stats_panel.gd")
+const STATS_INTERVAL := 0.2  ## seconds between statistics updates
 
 var world := ProtodishWorld.new()
 var running := true
 var frame := 0
+var since_stats := 0.0
 var texture: ImageTexture
 var presets: Array[Dictionary] = []  ## {name, text}
 var preset_index := 0
@@ -29,6 +32,7 @@ var preset_error := ""  ## shown until the next successful restart
 @onready var view_menu: OptionButton = %View
 @onready var ground_menu: OptionButton = %GroundLayer
 @onready var legend: Legend = %Legend
+@onready var stats: StatsPanel = %Stats
 
 
 func _ready() -> void:
@@ -74,7 +78,7 @@ func _load_presets() -> void:
 		presets.append({"name": name, "text": text})
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	frame += 1
 	if running:
 		var k := int(speed.value)
@@ -85,6 +89,14 @@ func _process(_delta: float) -> void:
 			running = false
 	texture.update(world.render(_view_mode()))
 	_update_status()
+	since_stats += delta
+	if since_stats >= STATS_INTERVAL:
+		_update_stats()
+
+
+func _update_stats() -> void:
+	since_stats = 0.0
+	stats.show_stats(world.get_stats(), world.get_history(stats.graph.max_points()))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -111,12 +123,14 @@ func _restart(seed: int) -> void:
 	view.texture = texture
 	running = true
 	_update_status()
+	_update_stats()
 
 
 func _end_world() -> void:
 	world.end_world()
 	running = false
 	_update_status()
+	_update_stats()
 
 
 func _toggle_running() -> void:
@@ -149,11 +163,12 @@ func _update_speed_label() -> void:
 
 
 func _update_status() -> void:
-	var line := "Tick %d   ·   %d cells" % [world.get_tick(), world.get_cell_count()]
+	# Tick and cell counts are in the statistics panel.
+	var line := "Running" if running else "Paused"
 	if world.is_ended():
-		line += "\nWorld ended at tick %d. Restart to begin again." % world.get_ended_at()
+		line = "World ended at tick %d. Restart to begin again." % world.get_ended_at()
 	elif world.is_extinct():
-		line += "\nExtinct: the last cell died at tick %d. Restart to begin again." % world.get_extinct_at()
+		line = "Extinct: the last cell died at tick %d. Restart to begin again." % world.get_extinct_at()
 	if preset_error != "":
 		line += "\nPreset error: " + preset_error
 	status.text = line

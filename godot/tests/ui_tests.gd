@@ -93,6 +93,21 @@ func run() -> void:
 	view_menu.item_selected.emit(1)
 	check(not ground.visible and main._view_mode() == ProtodishWorld.VIEW_ENERGY, "Energy hides the layer menu")
 
+	# Statistics panel and graph.
+	var StatsPanel := load("res://stats_panel.gd")
+	check(StatsPanel.season_name(0, 2000) == "spring" and StatsPanel.season_name(250, 2000) == "summer"
+		and StatsPanel.season_name(1249, 2000) == "autumn" and StatsPanel.season_name(1500, 2000) == "winter"
+		and StatsPanel.season_name(1750, 2000) == "spring", "season names centered on midsummer and midwinter")
+	await frames(30)
+	var stats: Node = node("Stats")
+	main._update_stats()
+	check(stats.values["tick"].text == stats.Graph._thousands(world.get_tick()), "stats show the current tick")
+	check(stats.values["cells"].text == stats.Graph._thousands(world.get_cell_count()), "stats show the cell count")
+	check(stats.values["lineages"].text.contains("with ≥ 10 cells"), "lineages show both counts")
+	check(stats.graph.history["ticks"].size() > 1, "the graph has points")
+	check(stats.Graph._thousands(1234567) == "1,234,567" and stats.Graph._thousands(12) == "12", "thousands")
+	check(stats.Graph._nice_ceiling(1830) == 2000 and stats.Graph._nice_ceiling(4100) == 5000, "graph scale")
+
 	# End world.
 	await frames(3)
 	node("EndWorld").pressed.emit()
@@ -102,6 +117,7 @@ func run() -> void:
 	check(world.get_tick() == ended_at and not main.running, "an ended world stays paused")
 	check(node("StartPause").disabled and node("EndWorld").disabled, "Start and End world are disabled")
 	check(node("Status").text.contains("World ended at tick %d" % ended_at), "status says the world ended")
+	check(stats.values["cells"].text == "0", "stats update when the world ends")
 	node("StartPause").pressed.emit()
 	check(not main.running, "Start does nothing on an ended world")
 	node("Restart").pressed.emit()

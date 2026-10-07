@@ -65,7 +65,9 @@ struct Census {
     std::uint64_t hash = 0;
 };
 
-Census take_census(const World& w);
+// The state hash costs most of the time (about 4.5 of 5 ms at 2,000 cells); the app's
+// statistics panel skips it and leaves hash at 0.
+Census take_census(const World& w, bool with_hash = true);
 
 // CSV with one row per census. The interval columns cover the ticks since the previous row.
 void write_census_header(std::FILE* out);

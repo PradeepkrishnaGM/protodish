@@ -296,8 +296,9 @@ measurements.
 4. **Diversity and both sides are judged over the final year** (changed after E0,
    2026-10-06). The final year is the census rows with tick in (last − 2,000, last], which
    is 20 rows. A target passes when it holds in at least half of them. The final-tick result
-   is reported too, but does not decide the target. Tick 50,000 is the first tick of a
-   spring, the population low, so the final tick alone was the harshest point to judge.
+   is reported too, but does not decide the target. Tick 50,000 is mid-spring (season 0,
+   rising; see M7d for season names), right after the winter low in population, so the final
+   tick alone was the harshest point to judge.
 5. **Two producer tests.** The target uses the RULES.md gene test: a producer's
    photosynthesis gene is higher than its harvest gene. The census also reports an intake
    test. Which one becomes the target is decided after seeing both:
@@ -502,6 +503,31 @@ measurements.
 - **No `class_name` in the app scripts.** Scripts are preloaded as constants, because `class_name`
   resolves only through the editor's class cache. A fresh checkout run with `godot --path godot`
   would fail to parse without it.
+- **Statistics panel (M7d).**
+  - It updates every 0.2 s, on Restart and on End world. The left status line shows only the run
+    state (running, paused, extinct, ended), so tick and cell counts appear in one place.
+  - **Year** is counted from 1, as in M6-1: year 1 is ticks 0–1,999.
+  - **Season name** (display only): each season is the quarter of the year centered on its peak,
+    because RULES.md calls season +1 "midsummer" and −1 "midwinter". Spring is ticks 1,750–249 of the
+    year, summer 250–749, autumn 750–1,249 and winter 1,250–1,749. Tick 0 is mid-spring, matching
+    "a run starts in spring, at 0 and rising". Approved 2026-10-07; M6-4 and TUNING.md were
+    corrected to match (they had called tick 50,000 "the first tick of a spring"). The season value
+    is shown too.
+  - **Temperature and light** are the lowest and highest over the 128 rows in the tick just run.
+  - **Lineages** shows both cluster counts (M7-2). Producers and consumers use the RULES.md gene
+    test.
+  - **Matter** shows cells, food (A + B, with each kind) and minerals, each with its share of the
+    total.
+  - `take_census(w, with_hash = false)` skips the state hash, which took about 4.5 of the 5 ms per
+    census at 2,000 cells. The CLI keeps the hash. A panel update now costs about 0.4 ms.
+- **Population graph (M7d).** It shows cells, producers and infected cells over the whole run, with
+  faint lines at year boundaries.
+  - `PopulationHistory` (`core/history.{hpp,cpp}`) records the world after every tick, so a crash
+    inside one frame still shows. Each graph point is the peak of the ticks it covers.
+  - Memory is bounded: at 1,048,576 samples, neighboring samples merge in pairs, keeping peaks, and
+    each sample then covers twice as many ticks. That is about 12 MB at most.
+  - Recording costs nothing measurable: the wrapper runs 1,177 ticks/s, the CLI 1,055 ticks/s
+    (seed 1, 10,000 ticks).
 - **UI tests.** `godot_ui` (`godot/tests/ui_tests.gd`) loads the real scene headless and presses
   every control through its signals. It covers speed (exact ticks per frame), pause, seed, presets,
   view and layer menus, the legend, End world and Restart.
