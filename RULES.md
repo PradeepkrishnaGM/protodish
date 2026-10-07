@@ -1,10 +1,10 @@
-# Evolving Life: Rule Set
+# Protodish: Rule Set
 
 Oct 5, 2026 · @Device
 
 ## Overview
 
-Evolving Life is a grid world, descended from Conway's Game of Life, in which no species, predator, parasite or multicellular body is written into the rules. Every cell carries 20 genes, and those roles have to evolve from them.
+Protodish is a grid world, descended from Conway's Game of Life, in which no species, predator, parasite or multicellular body is written into the rules. Every cell carries 20 genes, and those roles have to evolve from them.
 
 The rules follow four principles:
 

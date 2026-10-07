@@ -399,3 +399,12 @@ measurements.
 - **`tools/groups.py`** follows D0's founding groups through the lineage log. A daughter
   belongs to her mother's group. Groups are "separate" while every pair of groups is more
   than 0.1 apart in tag.
+
+## Project name (2026-10-07)
+
+- **The project is renamed from Evolving Life to Protodish.** The new name is used in the
+  title of RULES.md and in its overview. There is no README yet;
+  M8 will write it under the new name.
+- **Unchanged:** the C++ namespace `evo`, the `evolve` binary, the folder
+  `evolving-life`, the CMake project name `evolving_life`, the `EVO_` macro prefix and the
+  lineage-log magic `EVOLIN01`. The last of these keeps existing logs readable.
