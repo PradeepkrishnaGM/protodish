@@ -9,7 +9,9 @@
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
 
+#include "view.hpp"
 #include "world.hpp"
 
 namespace godot {
@@ -18,7 +20,8 @@ class ProtodishWorld : public RefCounted {
     GDCLASS(ProtodishWorld, RefCounted)
 
 public:
-    enum ViewMode { VIEW_LINEAGE = 0 };
+    // Same order as evo::ViewMode.
+    enum ViewMode { VIEW_LINEAGE, VIEW_ENERGY, VIEW_FEEDING, VIEW_INFECTION, VIEW_GROUND, VIEW_MODE_COUNT };
 
     ProtodishWorld();
     ~ProtodishWorld() override;
@@ -38,8 +41,11 @@ public:
     // The core's 64-bit state hash, as 16 hex digits (it does not fit a signed int64).
     String get_state_hash() const;
 
-    // Paints one pixel per site and returns the image (width × height, RGB8).
+    // Paints one pixel per site in the given ViewMode and returns the image
+    // (width × height, RGB8). An unknown mode paints Lineage.
     Ref<Image> render(int64_t mode);
+    // Display names of the view modes, in ViewMode order.
+    PackedStringArray get_view_mode_names() const;
 
 protected:
     static void _bind_methods();

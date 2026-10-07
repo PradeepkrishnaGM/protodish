@@ -1,39 +1,10 @@
 #include "protodish_world.hpp"
 
-#include <cmath>
 #include <cstdio>
 
 #include <godot_cpp/core/class_db.hpp>
 
 namespace godot {
-
-namespace {
-
-constexpr uint8_t kEmpty[3] = {16, 20, 24};  // background of an empty site
-
-// Hue in [0, 1), full saturation, value v; writes 3 bytes.
-void hsv_to_rgb(double h, double s, double v, uint8_t* out) {
-    h = (h - std::floor(h)) * 6.0;
-    const int i = static_cast<int>(h) % 6;
-    const double f = h - std::floor(h);
-    const double p = v * (1.0 - s);
-    const double q = v * (1.0 - s * f);
-    const double t = v * (1.0 - s * (1.0 - f));
-    double r = v, g = t, b = p;
-    switch (i) {
-        case 0: r = v; g = t; b = p; break;
-        case 1: r = q; g = v; b = p; break;
-        case 2: r = p; g = v; b = t; break;
-        case 3: r = p; g = q; b = v; break;
-        case 4: r = t; g = p; b = v; break;
-        default: r = v; g = p; b = q; break;
-    }
-    out[0] = static_cast<uint8_t>(std::lround(r * 255.0));
-    out[1] = static_cast<uint8_t>(std::lround(g * 255.0));
-    out[2] = static_cast<uint8_t>(std::lround(b * 255.0));
-}
-
-}  // namespace
 
 ProtodishWorld::ProtodishWorld() { reset(1); }
 ProtodishWorld::~ProtodishWorld() = default;
@@ -69,25 +40,19 @@ String ProtodishWorld::get_state_hash() const {
     return String(buf);
 }
 
+static_assert(ProtodishWorld::VIEW_MODE_COUNT == evo::kViewModeCount, "view modes out of step with the core");
+
 Ref<Image> ProtodishWorld::render(int64_t mode) {
-    (void)mode;  // only VIEW_LINEAGE so far
-    const evo::CellArrays& c = world_->cells();
-    const auto& tag = c.genes[evo::kTag];
-    uint8_t* px = pixels_.ptrw();
-    const int n = world_->site_count();
-    for (int s = 0; s < n; ++s) {
-        uint8_t* out = px + static_cast<std::ptrdiff_t>(s) * 3;
-        const auto i = static_cast<std::size_t>(s);
-        if (!c.alive[i]) {
-            out[0] = kEmpty[0];
-            out[1] = kEmpty[1];
-            out[2] = kEmpty[2];
-            continue;
-        }
-        hsv_to_rgb(tag[i], 0.85, 0.95, out);
-    }
+    const auto m = (mode >= 0 && mode < evo::kViewModeCount) ? static_cast<evo::ViewMode>(mode) : evo::ViewMode::Lineage;
+    evo::paint_view(*world_, m, pixels_.ptrw());
     return Image::create_from_data(static_cast<int32_t>(get_width()), static_cast<int32_t>(get_height()),
                                    false, Image::FORMAT_RGB8, pixels_);
+}
+
+PackedStringArray ProtodishWorld::get_view_mode_names() const {
+    PackedStringArray names;
+    for (int m = 0; m < evo::kViewModeCount; ++m) names.push_back(evo::view_mode_name(static_cast<evo::ViewMode>(m)));
+    return names;
 }
 
 void ProtodishWorld::_bind_methods() {
@@ -102,7 +67,13 @@ void ProtodishWorld::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_height"), &ProtodishWorld::get_height);
     ClassDB::bind_method(D_METHOD("get_state_hash"), &ProtodishWorld::get_state_hash);
     ClassDB::bind_method(D_METHOD("render", "mode"), &ProtodishWorld::render);
+    ClassDB::bind_method(D_METHOD("get_view_mode_names"), &ProtodishWorld::get_view_mode_names);
     BIND_ENUM_CONSTANT(VIEW_LINEAGE);
+    BIND_ENUM_CONSTANT(VIEW_ENERGY);
+    BIND_ENUM_CONSTANT(VIEW_FEEDING);
+    BIND_ENUM_CONSTANT(VIEW_INFECTION);
+    BIND_ENUM_CONSTANT(VIEW_GROUND);
+    BIND_ENUM_CONSTANT(VIEW_MODE_COUNT);
 }
 
 }  // namespace godot

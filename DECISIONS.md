@@ -458,3 +458,18 @@ measurements.
   are deterministic, and the rendered images. Snapshots go to `build-godot/godot_out/`.
   `godot/tests/screenshot.gd` saves a full-window screenshot under `xvfb-run`.
 - **Run the app:** `godot --path godot`.
+- **View colors live in the core** (`core/view.{hpp,cpp}`, M7b). The painter has no Godot code and
+  only reads the world, so doctest checks the exact colors on hand-built worlds. The wrapper copies
+  its buffer into the Image. Display constants (colors, ground scale) are named constants there,
+  not Params, because they do not affect the simulation.
+- **View modes (M7b).** Empty sites are dark in every mode except Ground.
+  - **Lineage:** hue = tag (saturation 0.85, value 0.95).
+  - **Energy:** A + B in store, from dark red at 0 through amber to pale yellow at `store_max` (50)
+    or more. Amber, the midpoint, is about the 12 A + 12 B a cell needs to divide.
+  - **Feeding type:** green producer, orange consumer, by the RULES.md gene test
+    (photosynthesis > harvest).
+  - **Infection:** infected cells in the hue of their virus tag, healthy cells grey.
+  - **Ground:** red = food A, green = food B, blue = minerals, each sqrt(amount / full) with
+    full = 12 for food and 50 for minerals. That is about the 99th percentile per site in default
+    runs at ticks 2,500–10,000, where most sites hold under 2 food and minerals reach 180.
+    Cells are not drawn.

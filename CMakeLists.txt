@@ -27,6 +27,7 @@ add_library(evo_core STATIC
   core/world.cpp
   core/phases.cpp
   core/records.cpp
+  core/view.cpp
 )
 target_include_directories(evo_core PUBLIC core)
 option(EVO_BUILD_GODOT "Build the Godot GDExtension (needs the extern/godot-cpp submodule)" OFF)
@@ -55,6 +56,7 @@ add_executable(evo_tests
   tests/test_viruses.cpp
   tests/test_golden.cpp
   tests/test_records.cpp
+  tests/test_view.cpp
 )
 target_include_directories(evo_tests PRIVATE tests)
 target_link_libraries(evo_tests PRIVATE evo_core)

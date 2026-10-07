@@ -23,7 +23,7 @@ func _initialize() -> void:
 	test_class_exists()
 	test_matches_cli()
 	test_determinism()
-	test_render_lineage()
+	test_render_modes()
 
 	if failures == 0:
 		print("all godot tests passed")
@@ -82,21 +82,36 @@ func test_determinism() -> void:
 	check(w.get_state_hash() == a, "reset with the same seed repeats the history")
 
 
-func test_render_lineage() -> void:
+func test_render_modes() -> void:
 	var w := ProtodishWorld.new()
 	w.reset(3)
 	w.step(300)
-	var img := w.render(ProtodishWorld.VIEW_LINEAGE)
-	check(img.get_width() == 128 and img.get_height() == 128, "image is 128 x 128")
-	check(img.get_format() == Image.FORMAT_RGB8, "image is RGB8")
-	var occupied := 0
+	var names := w.get_view_mode_names()
+	check(names.size() == ProtodishWorld.VIEW_MODE_COUNT, "one name per view mode")
+	for mode in ProtodishWorld.VIEW_MODE_COUNT:
+		var img := w.render(mode)
+		check(img.get_width() == 128 and img.get_height() == 128, "%s: image is 128 x 128" % names[mode])
+		check(img.get_format() == Image.FORMAT_RGB8, "%s: image is RGB8" % names[mode])
+		var occupied := count_non_empty(img)
+		if mode == ProtodishWorld.VIEW_GROUND:
+			check(occupied > w.get_cell_count(), "Ground: the ground is drawn on empty sites too")
+		else:
+			check(occupied == w.get_cell_count(),
+				"%s: one colored pixel per cell (%d pixels, %d cells)" % [names[mode], occupied, w.get_cell_count()])
+		save_snapshot(img, names[mode].to_snake_case())
+	var hash_before := w.get_state_hash()
+	w.render(ProtodishWorld.VIEW_GROUND)
+	check(w.get_state_hash() == hash_before, "rendering does not change the world")
+	check(count_non_empty(w.render(99)) == w.get_cell_count(), "an unknown mode paints lineage")
+
+
+func count_non_empty(img: Image) -> int:
+	var n := 0
 	for y in img.get_height():
 		for x in img.get_width():
 			if img.get_pixel(x, y) != EMPTY:
-				occupied += 1
-	check(occupied == w.get_cell_count(),
-		"one colored pixel per cell (%d pixels, %d cells)" % [occupied, w.get_cell_count()])
-	save_snapshot(img, "lineage")
+				n += 1
+	return n
 
 
 ## Saves the image scaled up 4x without smoothing, for viewing.
