@@ -184,3 +184,20 @@ TEST_CASE("view: every mode has a legend; gradients have both ends labelled") {
     CHECK(energy[0].colors.back() == evo::energy_color(1.0));
     CHECK(energy[0].high == "50+");
 }
+
+TEST_CASE("view: temperature strip colors run from blue through pale to red on a fixed scale") {
+    const evo::Params p;
+    CHECK(evo::temperature_color(p.temp_min, p) == evo::view::kCold);
+    CHECK(evo::temperature_color((p.temp_min + p.temp_max) / 2, p) == evo::view::kMild);
+    CHECK(evo::temperature_color(p.temp_max, p) == evo::view::kHot);
+    CHECK(evo::temperature_color(p.temp_max + 10, p) == evo::view::kHot);  // clamped
+    const evo::Rgb warm = evo::temperature_color(22.5, p);
+    CHECK(warm[0] > warm[2]);
+    const evo::Rgb cool = evo::temperature_color(7.5, p);
+    CHECK(cool[2] > cool[0]);
+    for (int m = 0; m < evo::kViewModeCount; ++m) {
+        const auto items = evo::view_legend(static_cast<evo::ViewMode>(m), p);
+        CHECK(items.back().low == "0 °C");
+        CHECK(items.back().high == "30 °C");
+    }
+}

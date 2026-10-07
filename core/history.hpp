@@ -39,9 +39,9 @@ public:
         std::vector<int> producers;
         std::vector<int> infected;
     };
-    // At most max_points points (max_points >= 1); each is the peak of each series over
-    // the samples it covers.
-    Series downsample(std::size_t max_points) const;
+    // At most max_points points (max_points >= 1) from the samples whose first tick is at
+    // least from_tick; each point is the peak of each series over the samples it covers.
+    Series downsample(std::size_t max_points, std::uint64_t from_tick = 0) const;
 
 private:
     struct Sample {

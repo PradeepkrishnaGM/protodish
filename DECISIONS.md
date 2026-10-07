@@ -528,6 +528,27 @@ measurements.
     each sample then covers twice as many ticks. That is about 12 MB at most.
   - Recording costs nothing measurable: the wrapper runs 1,177 ticks/s, the CLI 1,055 ticks/s
     (seed 1, 10,000 ticks).
+- **Click-to-inspect (M7e).** The right panel has two tabs, Statistics and Cell. Clicking the
+  world view opens the Cell tab.
+  - On a cell, the tab shows its ID, parents, stores, age, stress, activity (awake, dormant or
+    born this tick), cooldown, infection, body (size, bonds, inner or outer), feeding type, thermal
+    efficiency and supply. It also shows its 20 genes, with RULES.md names and a bar over each
+    gene's range, and the ground and climate of its site.
+  - On an empty site, it shows that site's ground and climate.
+  - Esc or Clear removes the selection, and Restart clears it.
+  - `CellTracker` (`core/inspect.{hpp,cpp}`) follows the selected cell by ID after every tick. It
+    checks the cell's last site, then the 8 neighbors, then the whole grid. It takes the death
+    tick and cause from the World's death events. A cell cleared by End world shows as "removed".
+    The view outlines the selected cell with a white ring 2 px outside its site.
+- **Window and layout (M7e, after review).** The window starts maximized
+  (`window/size/mode = 2`): at 1920 × 1080 the zoom is 8 px per site, against 6 at 1280 × 800. The
+  right panel is 340 px wide on both tabs, so the world view does not shift when the tab changes.
+- **Temperature strip (M7e, after review).** A strip left of the grid shows each row's temperature
+  in the tick just run. It runs from blue at `temp_min` through pale at the midpoint to red at
+  `temp_max`, on a fixed scale (0–30 °C by default), so the seasons show. Its width is twice the
+  zoom, at least 4 px. Every view's legend ends with its entry.
+- **Graph window (M7e, after review).** The graph shows the last 5 years by default, with a
+  "Whole run" toggle. `PopulationHistory::downsample` takes a start tick.
 - **UI tests.** `godot_ui` (`godot/tests/ui_tests.gd`) loads the real scene headless and presses
   every control through its signals. It covers speed (exact ticks per frame), pause, seed, presets,
   view and layer menus, the legend, End world and Restart.

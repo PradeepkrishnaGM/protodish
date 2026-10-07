@@ -50,6 +50,11 @@ inline constexpr Rgb kLayerFoodB = {50, 205, 70};
 inline constexpr Rgb kLayerMinerals = {70, 120, 255};
 inline constexpr double kLayerKnee = 0.7;
 inline constexpr int kGradientSamples = 16;  // colors per legend gradient
+// Row temperature strip beside the grid: blue at temp_min, pale at the midpoint, red at
+// temp_max (Params; 0 and 30 °C by default). The scale is fixed, so seasons show.
+inline constexpr Rgb kCold = {45, 95, 235};
+inline constexpr Rgb kMild = {215, 215, 220};
+inline constexpr Rgb kHot = {235, 55, 40};
 inline constexpr double kTagSaturation = 0.85;
 inline constexpr double kTagValue = 0.95;
 // Ground: a channel is sqrt(amount / full), at most 1. The square root keeps small
@@ -70,6 +75,8 @@ struct LegendItem {
     std::string low;
     std::string high;
 };
+Rgb temperature_color(double temperature, const Params& p);
+// Every mode's legend ends with the temperature strip's entry.
 std::vector<LegendItem> view_legend(ViewMode mode, const Params& p);
 
 // Writes site_count() × 3 bytes, row by row from row 0.

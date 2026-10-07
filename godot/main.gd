@@ -1,6 +1,6 @@
 extends Control
 ## The app: controls on the left, the world view in the middle, statistics on the right
-## (RULES.md, "The application"). Click-to-inspect (M7e) comes later.
+## (RULES.md, "The application"). Clicking the world view inspects a cell or site.
 
 const PRESET_DIR := "res://presets"
 const DEFAULT_PRESET := "default.params"  ## listed first
@@ -11,6 +11,8 @@ const GROUND_LAYERS := ["All layers", "Food A", "Food B", "Minerals"]
 const WorldView := preload("res://world_view.gd")
 const Legend := preload("res://legend.gd")
 const StatsPanel := preload("res://stats_panel.gd")
+const Inspector := preload("res://inspector.gd")
+const CELL_TAB := 1
 const STATS_INTERVAL := 0.2  ## seconds between statistics updates
 
 var world := ProtodishWorld.new()
@@ -18,6 +20,8 @@ var running := true
 var frame := 0
 var since_stats := 0.0
 var texture: ImageTexture
+var strip_texture: ImageTexture
+var inspected_site := -1  ## an empty site that was clicked; -1 when a cell is selected or nothing
 var presets: Array[Dictionary] = []  ## {name, text}
 var preset_index := 0
 var preset_error := ""  ## shown until the next successful restart
@@ -33,6 +37,8 @@ var preset_error := ""  ## shown until the next successful restart
 @onready var ground_menu: OptionButton = %GroundLayer
 @onready var legend: Legend = %Legend
 @onready var stats: StatsPanel = %Stats
+@onready var inspector: Inspector = %Inspector
+@onready var right_tabs: TabContainer = %RightTabs
 
 
 func _ready() -> void:
@@ -56,6 +62,9 @@ func _ready() -> void:
 		_restart(world.get_seed()))
 	view_menu.item_selected.connect(func(_i: int) -> void: _update_view())
 	ground_menu.item_selected.connect(func(_i: int) -> void: _update_view())
+	view.site_clicked.connect(_on_site_clicked)
+	inspector.clear_requested.connect(_clear_selection)
+	stats.graph_range_changed.connect(_update_stats)
 
 	_restart(DEFAULT_SEED)
 	_update_speed_label()
@@ -88,6 +97,8 @@ func _process(delta: float) -> void:
 		if world.is_extinct():
 			running = false
 	texture.update(world.render(_view_mode()))
+	strip_texture.update(world.render_temperature_strip())
+	view.selected_site = world.get_selected_site()
 	_update_status()
 	since_stats += delta
 	if since_stats >= STATS_INTERVAL:
@@ -96,7 +107,37 @@ func _process(delta: float) -> void:
 
 func _update_stats() -> void:
 	since_stats = 0.0
-	stats.show_stats(world.get_stats(), world.get_history(stats.graph.max_points()))
+	var s := world.get_stats()
+	var from_tick := stats.graph_from_tick(s["tick"], s["year_length"])
+	stats.show_stats(s, world.get_history_since(stats.graph.max_points(), from_tick))
+	_update_inspector()
+
+
+func _update_inspector() -> void:
+	var cell := world.inspect_cell()
+	if cell["state"] != "none":
+		inspector.show_cell(cell, world.inspect_site(cell["site"]), world.get_tick())
+	elif inspected_site >= 0:
+		inspector.show_cell(cell, world.inspect_site(inspected_site), world.get_tick())
+	else:
+		inspector.show_nothing()
+
+
+## Selects the cell on a clicked site, or shows the site's ground if it is empty.
+func _on_site_clicked(site: int) -> void:
+	if site < 0:
+		return
+	inspected_site = -1 if world.select_site(site) else site
+	view.selected_site = world.get_selected_site()
+	right_tabs.current_tab = CELL_TAB
+	_update_inspector()
+
+
+func _clear_selection() -> void:
+	world.clear_selection()
+	inspected_site = -1
+	view.selected_site = -1
+	_update_inspector()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -104,6 +145,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_SPACE:
 		_toggle_running()
+	elif event.keycode == KEY_ESCAPE:
+		_clear_selection()
 	elif event.keycode >= KEY_1 and event.keycode < KEY_1 + MAIN_VIEWS:
 		view_menu.select(event.keycode - KEY_1)
 		_update_view()
@@ -121,6 +164,10 @@ func _restart(seed: int) -> void:
 	preset_menu.select(preset_index)
 	texture = ImageTexture.create_from_image(world.render(_view_mode()))
 	view.texture = texture
+	strip_texture = ImageTexture.create_from_image(world.render_temperature_strip())
+	view.strip = strip_texture
+	inspected_site = -1  # reset() clears the selection
+	view.selected_site = -1
 	running = true
 	_update_status()
 	_update_stats()

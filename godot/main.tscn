@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
 [ext_resource type="Script" path="res://world_view.gd" id="2"]
 [ext_resource type="Script" path="res://legend.gd" id="3"]
 [ext_resource type="Script" path="res://stats_panel.gd" id="4"]
+[ext_resource type="Script" path="res://inspector.gd" id="5"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -147,7 +148,7 @@ script = ExtResource("3")
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.62, 0.65, 1)
 theme_override_font_sizes/font_size = 12
-text = "Space: start / pause   1-5: view"
+text = "Space: start / pause   1-5: view\nClick: inspect   Esc: clear selection"
 autowrap_mode = 3
 
 [node name="WorldView" type="Control" parent="Layout"]
@@ -156,15 +157,18 @@ size_flags_horizontal = 3
 mouse_filter = 0
 script = ExtResource("2")
 
-[node name="Statistics" type="PanelContainer" parent="Layout"]
-custom_minimum_size = Vector2(300, 0)
+[node name="RightTabs" type="TabContainer" parent="Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(340, 0)
 layout_mode = 2
+current_tab = 0
 
-[node name="Scroll" type="ScrollContainer" parent="Layout/Statistics"]
+[node name="Statistics" type="ScrollContainer" parent="Layout/RightTabs"]
 layout_mode = 2
 horizontal_scroll_mode = 0
+metadata/_tab_index = 0
 
-[node name="Margin" type="MarginContainer" parent="Layout/Statistics/Scroll"]
+[node name="Margin" type="MarginContainer" parent="Layout/RightTabs/Statistics"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -173,7 +177,27 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 10
 
-[node name="Stats" type="VBoxContainer" parent="Layout/Statistics/Scroll/Margin"]
+[node name="Stats" type="VBoxContainer" parent="Layout/RightTabs/Statistics/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
 script = ExtResource("4")
+
+[node name="Cell" type="ScrollContainer" parent="Layout/RightTabs"]
+visible = false
+layout_mode = 2
+horizontal_scroll_mode = 0
+metadata/_tab_index = 1
+
+[node name="Margin" type="MarginContainer" parent="Layout/RightTabs/Cell"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="Inspector" type="VBoxContainer" parent="Layout/RightTabs/Cell/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+script = ExtResource("5")

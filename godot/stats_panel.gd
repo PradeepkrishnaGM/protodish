@@ -15,10 +15,14 @@ const GROUPS := [
 		["matter_minerals", "As minerals"]]],
 ]
 const HEADING_SIZE := 16
+const GRAPH_YEARS := 5  ## the graph's default window
 const MUTED := Color(0.6, 0.62, 0.65)
+
+signal graph_range_changed
 
 var values := {}  ## key -> value Label
 var graph: Graph
+var whole_run: CheckButton
 
 
 func _ready() -> void:
@@ -40,7 +44,17 @@ func _ready() -> void:
 			grid.add_child(value)
 			values[row[0]] = value
 	add_child(grid)
-	add_child(_heading("Population"))
+	var title := HBoxContainer.new()
+	title.add_child(_heading("Population"))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_child(spacer)
+	whole_run = CheckButton.new()
+	whole_run.text = "Whole run"
+	whole_run.tooltip_text = "Off: the last %d years" % GRAPH_YEARS
+	whole_run.toggled.connect(func(_on: bool) -> void: graph_range_changed.emit())
+	title.add_child(whole_run)
+	add_child(title)
 	var key := HBoxContainer.new()
 	for s in Graph.SERIES:
 		var label := Label.new()
@@ -55,6 +69,12 @@ func _ready() -> void:
 	add_child(graph)
 
 
+## First tick the graph shows: 0 for the whole run, else the start of the last GRAPH_YEARS years.
+func graph_from_tick(tick: int, year_length: int) -> int:
+	return 0 if whole_run.button_pressed else maxi(0, tick - GRAPH_YEARS * year_length)
+
+
+## history must start at graph_from_tick(s["tick"], s["year_length"]).
 func show_stats(s: Dictionary, history: Dictionary) -> void:
 	var tick: int = s["tick"]
 	var year_length: int = s["year_length"]
@@ -78,7 +98,7 @@ func show_stats(s: Dictionary, history: Dictionary) -> void:
 	values["matter_food"].text = "%s\n(%s / %s)" % [_matter(s["matter_food_a"] + s["matter_food_b"], total),
 		Graph._thousands(roundi(s["matter_food_a"])), Graph._thousands(roundi(s["matter_food_b"]))]
 	values["matter_minerals"].text = _matter(s["matter_minerals"], total)
-	graph.set_data(history, year_length, tick)
+	graph.set_data(history, year_length, graph_from_tick(tick, year_length), tick)
 
 
 ## Season name of a tick. RULES.md puts midsummer (season +1) at tick 500 of the year and

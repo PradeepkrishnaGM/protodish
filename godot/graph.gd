@@ -1,6 +1,7 @@
 extends Control
-## Population over the whole run: cells, producers and infected cells, one point per
-## pixel column, each the peak of the ticks it covers. Faint lines mark the years.
+## Population from first_tick to now (the last 5 years, or the whole run): cells, producers
+## and infected cells, one point per pixel column, each the peak of the ticks it covers.
+## Faint lines mark the years.
 
 const SERIES := [
 	["cells", Color(0.92, 0.93, 0.95)],
@@ -10,15 +11,18 @@ const SERIES := [
 const GRID := Color(1, 1, 1, 0.08)
 const AXIS_TEXT := Color(0.6, 0.62, 0.65)
 const PAD := Vector2(4, 4)
+const LABEL_ROW := 16.0
 
 var history := {}
 var year_length := 2000
+var first_tick := 0
 var last_tick := 0
 
 
-func set_data(new_history: Dictionary, new_year_length: int, tick: int) -> void:
+func set_data(new_history: Dictionary, new_year_length: int, from_tick: int, tick: int) -> void:
 	history = new_history
 	year_length = new_year_length
+	first_tick = from_tick
 	last_tick = tick
 	queue_redraw()
 
@@ -38,16 +42,19 @@ func _draw() -> void:
 		for v in (history[s[0]] as PackedInt32Array):
 			top = maxi(top, v)
 	top = _nice_ceiling(top)
-	var area := Rect2(PAD, size - 2 * PAD)
-	var span := maxf(1.0, float(last_tick))
+	# The top LABEL_ROW pixels hold the labels, so the lines never run into them.
+	var area := Rect2(PAD + Vector2(0, LABEL_ROW), size - 2 * PAD - Vector2(0, LABEL_ROW))
+	var span := maxf(1.0, float(last_tick - first_tick))
 
 	# Year lines, thinned out so they stay at least 6 px apart.
 	var every := 1
 	while every * year_length / span * area.size.x < 6.0:
 		every *= 2
-	var y := every
+	var y := ceili(float(first_tick) / (year_length * every)) * every
+	if y == 0:
+		y = every
 	while y * year_length <= last_tick:
-		var x := area.position.x + y * year_length / span * area.size.x
+		var x := area.position.x + (y * year_length - first_tick) / span * area.size.x
 		draw_line(Vector2(x, area.position.y), Vector2(x, area.end.y), GRID)
 		y += every
 
@@ -56,7 +63,7 @@ func _draw() -> void:
 		var points := PackedVector2Array()
 		for k in ticks.size():
 			points.append(Vector2(
-				area.position.x + ticks[k] / span * area.size.x,
+				area.position.x + (ticks[k] - first_tick) / span * area.size.x,
 				area.end.y - float(values[k]) / top * area.size.y))
 		if points.size() == 1:
 			points.append(points[0] + Vector2(1, 0))
@@ -64,7 +71,7 @@ func _draw() -> void:
 
 	var font := get_theme_default_font()
 	draw_string(font, PAD + Vector2(2, 12), _thousands(top), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, AXIS_TEXT)
-	var span_text := "ticks 0 – %s, lines = years" % _thousands(last_tick)
+	var span_text := "ticks %s – %s, lines = years" % [_thousands(first_tick), _thousands(last_tick)]
 	draw_string(font, Vector2(PAD.x, PAD.y + 12), span_text, HORIZONTAL_ALIGNMENT_RIGHT, area.size.x - 2, 11, AXIS_TEXT)
 
 

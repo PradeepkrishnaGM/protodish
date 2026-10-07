@@ -67,3 +67,16 @@ TEST_CASE("history: counts come from the world") {
     CHECK(c.producers == 1);
     CHECK(c.infected == 1);
 }
+
+TEST_CASE("history: a window from a given tick") {
+    evo::PopulationHistory h;
+    for (std::uint64_t t = 0; t < 100; ++t) h.add(t, counts(t < 50 ? 900 : static_cast<int>(t)));
+    const auto s = h.downsample(1000, 60);
+    REQUIRE(s.tick.size() == 40);
+    CHECK(s.tick.front() == 60);
+    CHECK(s.cells.front() == 60);
+    CHECK(h.downsample(5, 60).cells.size() == 5);
+    CHECK(h.downsample(5, 60).cells[0] == 67);  // the peak of ticks 60-67, not the earlier 900s
+    CHECK(h.downsample(10, 500).tick.empty());
+    CHECK(h.downsample(1000, 0).tick.size() == 100);
+}

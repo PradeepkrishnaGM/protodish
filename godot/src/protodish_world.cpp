@@ -39,6 +39,7 @@ String ProtodishWorld::reset(int64_t seed, const String& params_text) {
     ended_at_ = -1;
     history_.clear();
     history_.record(*world_);
+    tracker_.clear();
     return String();
 }
 
@@ -47,6 +48,7 @@ int64_t ProtodishWorld::step(int64_t n) {
     while (ran < n && ended_at_ < 0 && !world_->extinct_at()) {
         world_->step();
         history_.record(*world_);
+        tracker_.update(*world_);
         ++ran;
     }
     return ran;
@@ -55,6 +57,7 @@ int64_t ProtodishWorld::step(int64_t n) {
 void ProtodishWorld::end_world() {
     if (ended_at_ >= 0) return;
     world_->clear_cells();
+    tracker_.removed(*world_);
     ended_at_ = static_cast<int64_t>(world_->tick());
 }
 
@@ -142,8 +145,11 @@ Dictionary ProtodishWorld::get_stats() const {
     return d;
 }
 
-Dictionary ProtodishWorld::get_history(int64_t max_points) const {
-    const auto s = history_.downsample(static_cast<std::size_t>(std::max<int64_t>(max_points, 1)));
+Dictionary ProtodishWorld::get_history(int64_t max_points) const { return get_history_since(max_points, 0); }
+
+Dictionary ProtodishWorld::get_history_since(int64_t max_points, int64_t from_tick) const {
+    const auto s = history_.downsample(static_cast<std::size_t>(std::max<int64_t>(max_points, 1)),
+                                       static_cast<uint64_t>(std::max<int64_t>(from_tick, 0)));
     PackedInt64Array ticks;
     PackedInt32Array cells, producers, infected;
     for (std::size_t k = 0; k < s.tick.size(); ++k) {
@@ -157,6 +163,97 @@ Dictionary ProtodishWorld::get_history(int64_t max_points) const {
     d["cells"] = cells;
     d["producers"] = producers;
     d["infected"] = infected;
+    return d;
+}
+
+Ref<Image> ProtodishWorld::render_temperature_strip() const {
+    const int h = world_->params().grid_height;
+    PackedByteArray px;
+    px.resize(h * 3);
+    for (int row = 0; row < h; ++row) {
+        const evo::Rgb c = evo::temperature_color(world_->row_temperature(row), world_->params());
+        for (int k = 0; k < 3; ++k) px[row * 3 + k] = c[static_cast<std::size_t>(k)];
+    }
+    return Image::create_from_data(1, h, false, Image::FORMAT_RGB8, px);
+}
+
+bool ProtodishWorld::select_site(int64_t site) {
+    tracker_.select(*world_, static_cast<int>(site));
+    return tracker_.state() == evo::CellTracker::State::Alive;
+}
+
+void ProtodishWorld::clear_selection() { tracker_.clear(); }
+
+int64_t ProtodishWorld::get_selected_site() const {
+    return tracker_.state() == evo::CellTracker::State::Alive ? tracker_.site() : -1;
+}
+
+Dictionary ProtodishWorld::inspect_cell() const {
+    using State = evo::CellTracker::State;
+    Dictionary d;
+    const State st = tracker_.state();
+    d["state"] = st == State::Alive ? "alive" : st == State::Dead ? "dead" : st == State::Removed ? "removed" : "none";
+    if (st == State::None) return d;
+    const int site = tracker_.site();
+    const int w = world_->params().grid_width;
+    d["id"] = static_cast<int64_t>(tracker_.id());
+    d["site"] = site;
+    d["row"] = site / w;
+    d["col"] = site % w;
+    d["death_tick"] = static_cast<int64_t>(tracker_.death_tick());
+    d["death_cause"] = st == State::Dead ? evo::death_cause_name(tracker_.death_cause()) : "";
+    if (st != State::Alive) return d;
+
+    const evo::CellArrays& c = world_->cells();
+    const auto i = static_cast<std::size_t>(site);
+    Array genes;
+    for (std::size_t k = 0; k < evo::kGeneCount; ++k) {
+        Dictionary g;
+        g["name"] = evo::kGeneInfo[k].name;
+        g["value"] = c.genes[k][i];
+        g["min"] = evo::kGeneInfo[k].min;
+        g["max"] = evo::kGeneInfo[k].max;
+        genes.push_back(g);
+    }
+    bool newborn = false;
+    for (const evo::BirthEvent& b : world_->births()) newborn = newborn || b.id == tracker_.id();
+    int bond_count = 0;
+    for (int k = 0; k < 8; ++k) bond_count += (c.bonds[i] >> k) & 1;
+    d["genes"] = genes;
+    d["parent_id"] = static_cast<int64_t>(c.parent_id[i]);
+    d["parent2_id"] = static_cast<int64_t>(c.parent2_id[i]);
+    d["store_a"] = c.store_a[i];
+    d["store_b"] = c.store_b[i];
+    d["store_max"] = world_->params().store_max;
+    d["age"] = static_cast<int64_t>(c.age[i]);
+    d["cooldown"] = static_cast<int64_t>(c.cooldown[i]);
+    d["stress"] = c.stress[i];
+    d["infected"] = c.infected[i] != 0;
+    d["virus_tag"] = c.virus_tag[i];
+    d["newborn"] = newborn;  // born in the tick just run, so not yet sensed
+    d["dormant"] = !newborn && !c.awake[i] && world_->tick() > 0;
+    d["thermal_eff"] = c.thermal_eff[i];
+    d["supply"] = c.supply[i];
+    d["bonds"] = bond_count;
+    d["inner"] = world_->is_inner(site);
+    d["body_size"] = evo::body_size(*world_, site);
+    d["producer"] = c.genes[evo::kPhotosynthesis][i] > c.genes[evo::kHarvest][i];
+    return d;
+}
+
+Dictionary ProtodishWorld::inspect_site(int64_t site) const {
+    Dictionary d;
+    if (site < 0 || site >= world_->site_count()) return d;
+    const auto i = static_cast<std::size_t>(site);
+    const int s = static_cast<int>(site);
+    d["row"] = s / world_->params().grid_width;
+    d["col"] = s % world_->params().grid_width;
+    d["food_a"] = world_->food_a()[i];
+    d["food_b"] = world_->food_b()[i];
+    d["minerals"] = world_->minerals()[i];
+    d["temperature"] = world_->site_temperature(s);
+    d["light"] = world_->site_light(s);
+    d["occupied"] = world_->cells().alive[i] != 0;
     return d;
 }
 
@@ -180,6 +277,13 @@ void ProtodishWorld::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_legend", "mode"), &ProtodishWorld::get_legend);
     ClassDB::bind_method(D_METHOD("get_stats"), &ProtodishWorld::get_stats);
     ClassDB::bind_method(D_METHOD("get_history", "max_points"), &ProtodishWorld::get_history);
+    ClassDB::bind_method(D_METHOD("get_history_since", "max_points", "from_tick"), &ProtodishWorld::get_history_since);
+    ClassDB::bind_method(D_METHOD("render_temperature_strip"), &ProtodishWorld::render_temperature_strip);
+    ClassDB::bind_method(D_METHOD("select_site", "site"), &ProtodishWorld::select_site);
+    ClassDB::bind_method(D_METHOD("clear_selection"), &ProtodishWorld::clear_selection);
+    ClassDB::bind_method(D_METHOD("get_selected_site"), &ProtodishWorld::get_selected_site);
+    ClassDB::bind_method(D_METHOD("inspect_cell"), &ProtodishWorld::inspect_cell);
+    ClassDB::bind_method(D_METHOD("inspect_site", "site"), &ProtodishWorld::inspect_site);
     BIND_ENUM_CONSTANT(VIEW_LINEAGE);
     BIND_ENUM_CONSTANT(VIEW_ENERGY);
     BIND_ENUM_CONSTANT(VIEW_FEEDING);

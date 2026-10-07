@@ -108,8 +108,50 @@ func run() -> void:
 	check(stats.Graph._thousands(1234567) == "1,234,567" and stats.Graph._thousands(12) == "12", "thousands")
 	check(stats.Graph._nice_ceiling(1830) == 2000 and stats.Graph._nice_ceiling(4100) == 5000, "graph scale")
 
+	# Graph window: the last 5 years unless Whole run is on.
+	check(not stats.whole_run.button_pressed, "the graph starts on the last 5 years")
+	check(stats.graph_from_tick(12000, 2000) == 2000 and stats.graph_from_tick(3000, 2000) == 0, "5-year window")
+	stats.whole_run.button_pressed = true
+	check(stats.graph_from_tick(12000, 2000) == 0, "Whole run shows from tick 0")
+	stats.whole_run.button_pressed = false
+
+	# Click-to-inspect.
+	var view: Control = main.get_node("Layout/WorldView")
+	check(view.zoom >= 1, "the view has a zoom")
+	check(view.site_at(view.origin + Vector2(view.zoom * 5, view.zoom * 3) + Vector2(0.5, 0.5)) == 3 * 128 + 5,
+		"a point maps to its site")
+	check(view.site_at(view.origin - Vector2(1, 1)) == -1, "outside the grid is no site")
+	var site := -1
+	for k in 128 * 128:
+		if world.inspect_site(k)["occupied"]:
+			site = k
+			break
+	node("StartPause").pressed.emit()  # pause, so the cell stays put
+	view.site_clicked.emit(site)
+	var tabs: TabContainer = node("RightTabs")
+	var inspector: Node = node("Inspector")
+	check(tabs.current_tab == 1, "a click opens the Cell tab")
+	check(inspector.title.text == "Cell #%d" % world.inspect_cell()["id"], "the Cell tab shows the clicked cell")
+	check(inspector.cell_box.visible and inspector.gene_values[2].text != "", "genes are shown")
+	await frames(1)
+	check(view.selected_site == site, "the view outlines the selected cell")
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	main._unhandled_input(esc)
+	check(world.inspect_cell()["state"] == "none" and inspector.title.text == "No cell selected", "Esc clears")
+	var empty := site + 1 if not world.inspect_site(site + 1)["occupied"] else site - 1
+	view.site_clicked.emit(empty)
+	check(inspector.title.text == "Empty site" and inspector.values["minerals"].text != "–", "an empty site shows its ground")
+	view.site_clicked.emit(site)
+	node("StartPause").pressed.emit()
+
 	# End world.
 	await frames(3)
+	for k in 128 * 128:  # select a cell that is alive now, so End world removes it
+		if world.inspect_site(k)["occupied"]:
+			view.site_clicked.emit(k)
+			break
 	node("EndWorld").pressed.emit()
 	var ended_at := world.get_tick()
 	await frames(3)
@@ -118,6 +160,7 @@ func run() -> void:
 	check(node("StartPause").disabled and node("EndWorld").disabled, "Start and End world are disabled")
 	check(node("Status").text.contains("World ended at tick %d" % ended_at), "status says the world ended")
 	check(stats.values["cells"].text == "0", "stats update when the world ends")
+	check(inspector.status.text.begins_with("Removed when the world ended"), "the inspector says the cell was removed")
 	node("StartPause").pressed.emit()
 	check(not main.running, "Start does nothing on an ended world")
 	node("Restart").pressed.emit()

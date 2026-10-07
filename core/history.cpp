@@ -60,12 +60,15 @@ void PopulationHistory::halve() {
     stride_ *= 2;
 }
 
-PopulationHistory::Series PopulationHistory::downsample(std::size_t max_points) const {
+PopulationHistory::Series PopulationHistory::downsample(std::size_t max_points, std::uint64_t from_tick) const {
     Series out;
-    if (samples_.empty()) return out;
+    const auto first = std::lower_bound(samples_.begin(), samples_.end(), from_tick,
+                                        [](const Sample& a, std::uint64_t t) { return a.tick < t; });
+    const auto begin = static_cast<std::size_t>(first - samples_.begin());
+    if (begin == samples_.size()) return out;
     max_points = std::max<std::size_t>(max_points, 1);
-    const std::size_t per = (samples_.size() + max_points - 1) / max_points;
-    for (std::size_t k = 0; k < samples_.size(); k += per) {
+    const std::size_t per = (samples_.size() - begin + max_points - 1) / max_points;
+    for (std::size_t k = begin; k < samples_.size(); k += per) {
         PopulationCounts peak = samples_[k].peak;
         for (std::size_t j = k + 1; j < std::min(k + per, samples_.size()); ++j) merge_into(peak, samples_[j].peak);
         out.tick.push_back(samples_[k].tick);

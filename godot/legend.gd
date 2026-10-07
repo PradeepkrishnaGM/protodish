@@ -68,7 +68,8 @@ func _label(text: String, small := false) -> Label:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", 12 if small else 14)
-	if small:
+	if small:  # end labels of a gradient: short, never wrapped
+		label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		label.size_flags_horizontal = Control.SIZE_FILL
 		label.add_theme_color_override("font_color", Color(0.7, 0.72, 0.75))
 	return label

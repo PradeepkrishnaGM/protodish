@@ -30,6 +30,8 @@ func _initialize() -> void:
 	test_legends()
 	test_stats()
 	test_history()
+	test_inspect()
+	test_temperature_strip()
 
 	if failures == 0:
 		print("all godot tests passed")
@@ -221,6 +223,74 @@ func test_history() -> void:
 	check(peak7 == peak, "downsampling keeps the peak (%d vs %d)" % [peak7, peak])
 	w.reset(4)
 	check((w.get_history(100)["ticks"] as PackedInt64Array).size() == 1, "reset clears the history")
+
+
+## The first site holding a cell, or -1.
+func first_cell(w: ProtodishWorld) -> int:
+	for site in w.get_width() * w.get_height():
+		if w.inspect_site(site)["occupied"]:
+			return site
+	return -1
+
+
+func test_inspect() -> void:
+	var w := ProtodishWorld.new()
+	w.reset(6)
+	w.step(100)
+	check(w.inspect_cell()["state"] == "none" and w.get_selected_site() == -1, "nothing selected at first")
+	var site := first_cell(w)
+	var empty := site - 1 if site > 0 else site + 1
+	check(not w.select_site(empty) and w.inspect_cell()["state"] == "none", "an empty site selects nothing")
+	var g := w.inspect_site(empty)
+	check(g.has_all(["row", "col", "food_a", "food_b", "minerals", "temperature", "light", "occupied"]),
+		"site has every key")
+	check(not g["occupied"] and g["row"] * 128 + g["col"] == empty, "site position")
+	check(w.select_site(site) and w.get_selected_site() == site, "a cell is selected")
+	var c := w.inspect_cell()
+	check(c["state"] == "alive" and c["site"] == site and c["id"] > 0, "selected cell is alive")
+	var genes: Array = c["genes"]
+	check(genes.size() == 20 and genes[5]["name"] == "preferred_temp" and genes[5]["max"] == 30.0, "20 genes")
+	for key in ["store_a", "store_b", "age", "stress", "cooldown", "infected", "dormant", "newborn", "bonds",
+			"inner", "body_size", "producer", "thermal_eff", "supply", "parent_id", "parent2_id"]:
+		check(c.has(key), "cell has " + key)
+	check(c["body_size"] >= 1 and c["stress"] >= 0.0 and c["stress"] <= 1.0, "cell values in range")
+	# Follow it: alive at its own (possibly new) site, or dead with a tick and cause.
+	var id: int = c["id"]
+	var died := false
+	for k in 3000:
+		w.step(1)
+		c = w.inspect_cell()
+		if c["state"] == "dead":
+			died = true
+			break
+		if c["id"] != id or w.get_selected_site() != c["site"]:
+			check(false, "selection follows the cell's ID")
+			break
+	check(died, "the selected cell died within 3,000 ticks")
+	if died:
+		check(c["death_tick"] < w.get_tick() and c["death_cause"] in ["starved", "drained", "disaster"],
+			"death tick %d and cause %s" % [c["death_tick"], c["death_cause"]])
+		check(w.get_selected_site() == -1, "a dead cell is not outlined")
+	w.select_site(first_cell(w))
+	w.end_world()
+	check(w.inspect_cell()["state"] == "removed", "End world marks the selection removed")
+	w.reset(6)
+	check(w.inspect_cell()["state"] == "none", "reset clears the selection")
+
+
+func test_temperature_strip() -> void:
+	var w := ProtodishWorld.new()
+	w.reset(1)
+	w.step(501)  # tick 500 is midsummer
+	var img := w.render_temperature_strip()
+	check(img.get_width() == 1 and img.get_height() == 128, "strip is 1 x 128")
+	var warm := img.get_pixel(0, 0)
+	check(warm.r > warm.b, "row 0 is warm at midsummer")
+	w.step(1000)  # tick 1500 is midwinter
+	var cold := w.render_temperature_strip().get_pixel(0, 64)
+	check(cold.b > cold.r, "row 64 is cold at midwinter")
+	var h := w.get_history_since(1000, 1400)
+	check(h["ticks"][0] == 1400 and h["ticks"].size() == 102, "history from tick 1400 (%d points)" % h["ticks"].size())
 
 
 func count_non_empty(img: Image) -> int:

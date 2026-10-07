@@ -92,7 +92,14 @@ Rgb layer_color(double amount, double full, const Rgb& color) {
                                 : lerp(color, white, (t - view::kLayerKnee) / (1.0 - view::kLayerKnee));
 }
 
-std::vector<LegendItem> view_legend(ViewMode mode, const Params& p) {
+Rgb temperature_color(double temperature, const Params& p) {
+    const double t = std::clamp((temperature - p.temp_min) / (p.temp_max - p.temp_min), 0.0, 1.0);
+    return t < 0.5 ? lerp(view::kCold, view::kMild, t * 2.0) : lerp(view::kMild, view::kHot, (t - 0.5) * 2.0);
+}
+
+namespace {
+
+std::vector<LegendItem> mode_legend(ViewMode mode, const Params& p) {
     const LegendItem empty{"empty site", {view::kEmpty}, "", ""};
     const auto layer = [](const char* label, double full, const Rgb& color) {
         return LegendItem{label, sample([&](double t) { return layer_color(t * t * full, full, color); }), "0",
@@ -125,6 +132,16 @@ std::vector<LegendItem> view_legend(ViewMode mode, const Params& p) {
         case ViewMode::Count: break;
     }
     return {};
+}
+
+}  // namespace
+
+std::vector<LegendItem> view_legend(ViewMode mode, const Params& p) {
+    std::vector<LegendItem> items = mode_legend(mode, p);
+    items.push_back({"row temperature (left strip)",
+                     sample([&](double t) { return temperature_color(p.temp_min + t * (p.temp_max - p.temp_min), p); }),
+                     number(p.temp_min) + " °C", number(p.temp_max) + " °C"});
+    return items;
 }
 
 void paint_view(const World& w, ViewMode mode, std::uint8_t* rgb) {
