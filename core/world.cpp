@@ -320,6 +320,18 @@ void World::kill_cell(std::size_t s, DeathCause cause) {
     --cell_count_;
 }
 
+void World::clear_cells() {
+    for (std::size_t s = 0; s < cells_.alive.size(); ++s) {
+        if (!cells_.alive[s]) continue;
+        cur_.food_a[s] += cells_.store_a[s] + params_.body_mass_a;
+        cur_.food_b[s] += cells_.store_b[s] + params_.body_mass_b;
+        cells_.clear(s);  // every cell goes, so no bond is left pointing at a removed cell
+    }
+    cell_count_ = 0;
+    births_.clear();
+    deaths_.clear();
+}
+
 void World::add_to_store(std::size_t s, double a, double b) {
     double na = cells_.store_a[s] + a;
     double nb = cells_.store_b[s] + b;

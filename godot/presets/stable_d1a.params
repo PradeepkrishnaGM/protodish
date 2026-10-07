@@ -1,0 +1,4 @@
+# name: Stable (climate belts, D1a)
+# Stronger climate belts: 0 extinctions in 24 seeds of 50,000 ticks (TUNING.md, D1a).
+temp_latitude_amp = 10
+light_latitude_amp = 0.35

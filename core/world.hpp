@@ -134,6 +134,11 @@ public:
     MatterTotals matter() const;
     std::uint64_t state_hash() const;
 
+    // The app's End world (DECISIONS M7-1): every cell's stores and body mass fall onto its
+    // site as food, as at a death, and the cell is removed. Total matter is unchanged. No
+    // death events are recorded and the world is not marked extinct.
+    void clear_cells();
+
     // Setup hooks for tests and tools. These add or replace matter, so they break
     // conservation if used mid-run. add_cell returns false if the site is taken.
     bool add_cell(int site, const Genome& g, double store_a, double store_b, std::uint32_t age);

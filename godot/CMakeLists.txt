@@ -34,6 +34,10 @@ add_test(NAME godot_import
 add_test(NAME godot_headless
   COMMAND godot --headless --path ${CMAKE_CURRENT_SOURCE_DIR} -s res://tests/run_tests.gd
           -- --evolve $<TARGET_FILE:evolve> --out ${CMAKE_BINARY_DIR}/godot_out)
+add_test(NAME godot_ui
+  COMMAND godot --headless --path ${CMAKE_CURRENT_SOURCE_DIR} -s res://tests/ui_tests.gd)
+set_tests_properties(godot_ui PROPERTIES LABELS godot FIXTURES_REQUIRED godot_project
+                     FAIL_REGULAR_EXPRESSION "FAIL|SCRIPT ERROR|ERROR:")
 set_tests_properties(godot_import PROPERTIES LABELS godot FIXTURES_SETUP godot_project)
 set_tests_properties(godot_headless PROPERTIES LABELS godot FIXTURES_REQUIRED godot_project
                      FAIL_REGULAR_EXPRESSION "FAIL|SCRIPT ERROR|ERROR:")

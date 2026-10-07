@@ -464,8 +464,10 @@ measurements.
   not Params, because they do not affect the simulation.
 - **View modes (M7b).** Empty sites are dark in every mode except Ground.
   - **Lineage:** hue = tag (saturation 0.85, value 0.95).
-  - **Energy:** A + B in store, from dark red at 0 through amber to pale yellow at `store_max` (50)
-    or more. Amber, the midpoint, is about the 12 A + 12 B a cell needs to divide.
+  - **Energy:** A + B in store, from red at 0 through amber to pale yellow at `store_max` (50)
+    or more. Amber, the midpoint, is about the 12 A + 12 B a cell needs to divide. The red end was
+    raised in M7c, after review, to (190, 60, 60). Its contrast ratio against the background is
+    above 3, and a test checks it.
   - **Feeding type:** green producer, orange consumer, by the RULES.md gene test
     (photosynthesis > harvest).
   - **Infection:** infected cells in the hue of their virus tag, healthy cells grey.
@@ -473,3 +475,33 @@ measurements.
     full = 12 for food and 50 for minerals. That is about the 99th percentile per site in default
     runs at ticks 2,500–10,000, where most sites hold under 2 food and minerals reach 180.
     Cells are not drawn.
+  - **Ground layers (M7c, after review):** Ground: food A, Ground: food B and Ground: minerals show
+    one layer alone. They run from black through the layer's color, reached at 0.7 on the same
+    square-root scale, to white at "full" or more. The view menu keeps the five RULES.md modes, and a
+    second menu, shown only for Ground, picks All layers or one layer.
+- **Legend (M7c).** `view_legend()` in the core builds each mode's legend from the same colors the
+  painter uses, so the two cannot drift apart. It is made of swatches and 16-color gradients with
+  labels at both ends. Swatches have a thin grey border, so the empty-site swatch shows on the dark
+  panel.
+- **Controls (M7c).**
+  - Restart uses the seed in the field. If the field does not hold a whole number of 0 or more, the
+    current seed is used and shown again. Enter in the field restarts too.
+  - New seed restarts with a random seed from 1 to 999,999,999. It is drawn from Godot's own random
+    source, never the simulation's.
+  - The speed slider has 10 steps: 1 tick every 8, 4 or 2 frames, then 1 to 64 ticks per frame.
+    The default is 4 ticks per frame.
+  - Keys: Space starts and pauses; 1–5 pick the five views.
+- **End world** calls `World::clear_cells()`. It records no death events, because no rule killed the
+  cells and the app writes no lineage log. The world is not marked extinct. The wrapper refuses to
+  step an ended world until Restart.
+- **Presets** are the `*.params` files in `godot/presets/`. Default is listed first, the rest in name
+  order, and each file's `# name:` line is its label. GDScript reads the text with `FileAccess`,
+  and the wrapper applies it with `apply_params` and `validate_params`. A bad preset is reported in
+  the status line and the current world is kept. Reading text rather than a file path keeps
+  presets working from an exported build. M8 must add `*.params` to the export filter.
+- **No `class_name` in the app scripts.** Scripts are preloaded as constants, because `class_name`
+  resolves only through the editor's class cache. A fresh checkout run with `godot --path godot`
+  would fail to parse without it.
+- **UI tests.** `godot_ui` (`godot/tests/ui_tests.gd`) loads the real scene headless and presses
+  every control through its signals. It covers speed (exact ticks per frame), pause, seed, presets,
+  view and layer menus, the legend, End world and Restart.

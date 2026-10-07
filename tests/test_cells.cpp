@@ -315,3 +315,39 @@ TEST_CASE("divide: two mothers, one empty site; the loser pays nothing and keeps
     }
     CHECK(winners.size() == 2);
 }
+
+TEST_CASE("clear_cells: every cell's matter falls onto its site as food (End world, M7-1)") {
+    const auto p = lab_params();
+    evo::World w(p, 1);
+    clear_ground(w);
+    REQUIRE(w.add_cell(at(32, 10), still(p), 7, 3, 10));
+    REQUIRE(w.add_cell(at(32, 11), still(p), 1, 2, 10));
+    REQUIRE(w.add_bond(at(32, 10), at(32, 11)));
+    w.set_cell_virus(at(32, 11), 0.5);
+    w.clear_cells();
+    CHECK(w.cell_count() == 0);
+    CHECK_FALSE(w.cells().alive[at(32, 10)]);
+    CHECK(w.cells().bonds[at(32, 10)] == 0);
+    CHECK(w.cells().infected[at(32, 11)] == 0);
+    CHECK(w.food_a()[at(32, 10)] == Approx(7 + p.body_mass_a));
+    CHECK(w.food_b()[at(32, 10)] == Approx(3 + p.body_mass_b));
+    CHECK(w.food_a()[at(32, 11)] == Approx(1 + p.body_mass_a));
+    CHECK(w.food_b()[at(32, 11)] == Approx(2 + p.body_mass_b));
+    CHECK(w.deaths().empty());
+    CHECK_FALSE(w.extinct_at().has_value());
+}
+
+TEST_CASE("clear_cells: conserves matter in a running world, which then runs on empty") {
+    const evo::Params p;
+    evo::World w(p, 2);
+    for (int t = 0; t < 500; ++t) w.step();
+    REQUIRE(w.cell_count() > 0);
+    const double before = w.matter().total();
+    w.clear_cells();
+    CHECK(w.cell_count() == 0);
+    CHECK(w.matter().cells == 0.0);
+    CHECK(w.matter().total() == Approx(before).epsilon(1e-12));
+    for (int t = 0; t < 50; ++t) w.step();
+    CHECK(w.matter().total() == Approx(before).epsilon(1e-12));
+    CHECK_FALSE(w.extinct_at().has_value());  // it had no cells when stepping began
+}

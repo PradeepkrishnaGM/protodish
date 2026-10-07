@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
+[ext_resource type="Script" path="res://world_view.gd" id="2"]
+[ext_resource type="Script" path="res://legend.gd" id="3"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -20,20 +22,135 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.04, 0.05, 0.06, 1)
 
-[node name="WorldView" type="TextureRect" parent="."]
+[node name="Layout" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
 
-[node name="Status" type="Label" parent="."]
-layout_mode = 0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = 400.0
-offset_bottom = 30.0
+[node name="Controls" type="PanelContainer" parent="Layout"]
+custom_minimum_size = Vector2(270, 0)
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Layout/Controls"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Margin" type="MarginContainer" parent="Layout/Controls/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="Box" type="VBoxContainer" parent="Layout/Controls/Scroll/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Protodish"
+
+[node name="Status" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="StartPause" type="Button" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Pause"
+
+[node name="SpeedTitle" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+text = "Speed"
+
+[node name="Speed" type="HSlider" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = -3.0
+max_value = 6.0
+value = 2.0
+tick_count = 10
+ticks_on_borders = true
+
+[node name="SpeedValue" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="WorldButtons" type="HBoxContainer" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+
+[node name="Restart" type="Button" parent="Layout/Controls/Scroll/Margin/Box/WorldButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Restart"
+
+[node name="EndWorld" type="Button" parent="Layout/Controls/Scroll/Margin/Box/WorldButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "End world"
+
+[node name="SeedTitle" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+text = "Seed (Enter restarts)"
+
+[node name="SeedRow" type="HBoxContainer" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+
+[node name="Seed" type="LineEdit" parent="Layout/Controls/Scroll/Margin/Box/SeedRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NewSeed" type="Button" parent="Layout/Controls/Scroll/Margin/Box/SeedRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Restart with a random seed"
+text = "New seed"
+
+[node name="PresetTitle" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+text = "Preset"
+
+[node name="Preset" type="OptionButton" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ViewTitle" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+text = "View"
+
+[node name="View" type="OptionButton" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GroundLayer" type="OptionButton" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Legend" type="VBoxContainer" parent="Layout/Controls/Scroll/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+script = ExtResource("3")
+
+[node name="Help" type="Label" parent="Layout/Controls/Scroll/Margin/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.65, 1)
+theme_override_font_sizes/font_size = 12
+text = "Space: start / pause   1-5: view"
+autowrap_mode = 3
+
+[node name="WorldView" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 0
+script = ExtResource("2")
