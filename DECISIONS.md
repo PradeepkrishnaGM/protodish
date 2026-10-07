@@ -408,3 +408,53 @@ measurements.
 - **Unchanged:** the C++ namespace `evo`, the `evolve` binary, the folder
   `evolving-life`, the CMake project name `evolving_life`, the `EVO_` macro prefix and the
   lineage-log magic `EVOLIN01`. The last of these keeps existing logs readable.
+
+## M7 Godot app (plan approved 2026-10-07)
+
+### App behavior
+
+1. **End world** kills every cell the way a death does: its stores and body mass fall onto
+   its site as food, so total matter is unchanged. The world then stays paused until
+   Restart.
+2. **Lineages** in the statistics panel shows both tag-cluster counts: all clusters (the
+   RULES.md definition) and those with at least `cluster_min_size` cells (the M6 diversity
+   target), as "12 (4 with ≥ 10 cells)".
+3. **Speed** runs from 1 tick every 8 frames up to 64 ticks per frame, in powers of two. The
+   slower settings let single cells be followed.
+4. **No lineage log in the app.** The app is for watching; the CLI records.
+5. **Presets.** A menu loads a params file: "Default (RULES.md)" and "Stable (climate belts,
+   D1a)" to start. Changing the preset restarts the world.
+6. **Extinction** pauses the app and shows the tick the last cell died, as the CLI ends its run.
+
+### Engineering choices (M7)
+
+- **Versions.** Godot 4.7.2 (Fedora package). godot-cpp is a submodule in `extern/godot-cpp`,
+  pinned at tag 10.0.0-stable. Since v10, godot-cpp is versioned apart from Godot and picks
+  the API with `GODOTCPP_API_VERSION`. It is set to 4.7. Its bundled
+  `extension_api-4-7.json` is identical, apart from the header, to the output of
+  `godot --dump-extension-api` from the installed 4.7.2. `compatibility_minimum` is 4.7.
+- **Build.** `cmake -S . -B build-godot -G Ninja -DEVO_BUILD_GODOT=ON`, then
+  `ninja -C build-godot`. The option is off by default, so the core, CLI and tests build
+  without godot-cpp. With it on, `evo_core` is built as position-independent code and
+  linked into `godot/bin/libprotodish.linux.template_debug.x86_64.so`. The golden hashes
+  still pass. godot-cpp headers are system headers, so our warning flags skip them.
+- **libstdc++ is linked dynamically for local builds.** Fedora ships no static libstdc++.
+  M8 release builds turn `GODOTCPP_USE_STATIC_CPP` back on.
+- **Renderer.** Compatibility (`gl_compatibility`), for Intel graphics viewed over Remote
+  Desktop.
+- **Wrapper.** `ProtodishWorld` (RefCounted) owns one `evo::World` and holds no simulation
+  logic. Ticks run on the main thread, N `step()` calls per frame. The view is painted in
+  C++ into a 128 × 128 RGB8 Image, one pixel per site, shown scaled up with
+  nearest-neighbor filtering. The state hash is exposed as 16 hex digits, because it does
+  not fit a signed 64-bit integer.
+- **`.godot/extension_list.cfg` is written after each build** (`cmake/write_extension_list.cmake`),
+  if it is missing. Without it, a run of the project without the editor does not load the
+  extension. The editor's first scan of the project also aborts in Godot 4.7.2
+  (`EditorHelp::_gen_extensions_docs`) when it finds the extension only during the scan;
+  with the file present beforehand it does not (3 of 3 runs against 0 of 3).
+- **Tests.** ctest label `godot`: `godot_import` (headless import, a fixture) and
+  `godot_headless` (`godot/tests/run_tests.gd`). They check that the class is registered,
+  that the wrapper's hash after 1,000 ticks equals the CLI's for the same seed, that runs
+  are deterministic, and the rendered images. Snapshots go to `build-godot/godot_out/`.
+  `godot/tests/screenshot.gd` saves a full-window screenshot under `xvfb-run`.
+- **Run the app:** `godot --path godot`.

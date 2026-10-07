@@ -29,6 +29,12 @@ add_library(evo_core STATIC
   core/records.cpp
 )
 target_include_directories(evo_core PUBLIC core)
+option(EVO_BUILD_GODOT "Build the Godot GDExtension (needs the extern/godot-cpp submodule)" OFF)
+if(EVO_BUILD_GODOT)
+  # The core is linked into a shared library. PIC does not change floating point; the
+  # golden-hash test confirms it.
+  set_target_properties(evo_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 target_compile_options(evo_core PRIVATE ${EVO_WARNINGS} PUBLIC ${EVO_FP_FLAGS})
 
 add_executable(evolve cli/main.cpp)
@@ -70,3 +76,8 @@ add_test(NAME cli_records
   COMMAND evolve --ticks 300 --census ${CMAKE_CURRENT_BINARY_DIR}/smoke_census.csv
           --lineage ${CMAKE_CURRENT_BINARY_DIR}/smoke_lineage.bin)
 set_tests_properties(cli_params_ok cli_params_bad cli_records PROPERTIES LABELS fast)
+
+# Godot GDExtension (M7). Off by default so the core, CLI and tests build without godot-cpp.
+if(EVO_BUILD_GODOT)
+  add_subdirectory(godot)
+endif()
