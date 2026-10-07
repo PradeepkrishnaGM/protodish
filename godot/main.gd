@@ -1,6 +1,9 @@
 extends Control
 ## The app: controls on the left, the world view in the middle, statistics on the right
 ## (RULES.md, "The application"). Clicking the world view inspects a cell or site.
+## Optional settings after "--" on the command line (used for the README GIF):
+##   --seed N  --preset NAME (file name in presets/, without .params)
+##   --view N (1-5, as the keys)  --speed N (ticks per frame: 1, 2, 4, ..., 64)
 
 const PRESET_DIR := "res://presets"
 const DEFAULT_PRESET := "default.params"  ## listed first
@@ -22,7 +25,7 @@ var since_stats := 0.0
 var texture: ImageTexture
 var strip_texture: ImageTexture
 var inspected_site := -1  ## an empty site that was clicked; -1 when a cell is selected or nothing
-var presets: Array[Dictionary] = []  ## {name, text}
+var presets: Array[Dictionary] = []  ## {name, text, file}
 var preset_index := 0
 var preset_error := ""  ## shown until the next successful restart
 
@@ -66,7 +69,7 @@ func _ready() -> void:
 	inspector.clear_requested.connect(_clear_selection)
 	stats.graph_range_changed.connect(_update_stats)
 
-	_restart(DEFAULT_SEED)
+	_restart(_apply_cmdline())
 	_update_speed_label()
 	_update_view()
 
@@ -84,7 +87,30 @@ func _load_presets() -> void:
 			if line.begins_with("# name:"):
 				name = line.trim_prefix("# name:").strip_edges()
 				break
-		presets.append({"name": name, "text": text})
+		presets.append({"name": name, "text": text, "file": f})
+
+
+## Applies the command-line settings and returns the seed to start with. Other options are
+## ignored, because test scripts pass their own.
+func _apply_cmdline() -> int:
+	var seed := DEFAULT_SEED
+	var args := OS.get_cmdline_user_args()
+	for i in args.size() - 1:
+		var value: String = args[i + 1]
+		match args[i]:
+			"--seed":
+				seed = int(value)
+			"--preset":
+				var found := presets.map(func(p: Dictionary) -> String: return p["file"]).find(value + ".params")
+				if found >= 0:
+					preset_index = found
+				else:
+					push_warning("unknown preset: " + value)
+			"--view":
+				view_menu.select(clampi(int(value), 1, MAIN_VIEWS) - 1)
+			"--speed":
+				speed.value = clampi(roundi(log(maxf(1.0, float(value))) / log(2.0)), 0, int(speed.max_value))
+	return seed
 
 
 func _process(delta: float) -> void:

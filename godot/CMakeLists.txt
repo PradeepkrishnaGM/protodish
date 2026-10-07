@@ -3,8 +3,8 @@
 set(GODOTCPP_API_VERSION "4.7" CACHE STRING "Godot API version targeted by godot-cpp")
 set(GODOTCPP_TARGET "template_debug" CACHE STRING "godot-cpp target")
 set(GODOTCPP_SYSTEM_HEADERS ON CACHE BOOL "Treat godot-cpp headers as system headers (no warnings from them)")
-# Local builds link the system libstdc++ (Fedora ships no static one). Release builds (M8)
-# turn this on for portability.
+# Local builds link the system libstdc++ (Fedora ships no static one). Release builds
+# (packaging/build-extension.sh) turn this on for portability.
 set(GODOTCPP_USE_STATIC_CPP OFF CACHE BOOL "Link libgcc and libstdc++ statically")
 add_subdirectory(${PROJECT_SOURCE_DIR}/extern/godot-cpp ${CMAKE_BINARY_DIR}/godot-cpp EXCLUDE_FROM_ALL)
 
@@ -21,6 +21,7 @@ set_target_properties(protodish PROPERTIES
   CXX_VISIBILITY_PRESET hidden
   POSITION_INDEPENDENT_CODE ON
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"  # Windows DLLs
   PREFIX "lib"
   OUTPUT_NAME "protodish${GODOTCPP_SUFFIX}"
 )
@@ -36,7 +37,10 @@ add_test(NAME godot_headless
           -- --evolve $<TARGET_FILE:evolve> --out ${CMAKE_BINARY_DIR}/godot_out)
 add_test(NAME godot_ui
   COMMAND godot --headless --path ${CMAKE_CURRENT_SOURCE_DIR} -s res://tests/ui_tests.gd)
-set_tests_properties(godot_ui PROPERTIES LABELS godot FIXTURES_REQUIRED godot_project
+add_test(NAME godot_cmdline
+  COMMAND godot --headless --path ${CMAKE_CURRENT_SOURCE_DIR} -s res://tests/cmdline_tests.gd
+          -- --seed 42 --preset stable_d1a --view 3 --speed 16)
+set_tests_properties(godot_ui godot_cmdline PROPERTIES LABELS godot FIXTURES_REQUIRED godot_project
                      FAIL_REGULAR_EXPRESSION "FAIL|SCRIPT ERROR|ERROR:")
 set_tests_properties(godot_import PROPERTIES LABELS godot FIXTURES_SETUP godot_project)
 set_tests_properties(godot_headless PROPERTIES LABELS godot FIXTURES_REQUIRED godot_project

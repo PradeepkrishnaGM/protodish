@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Protodish
+Comment=A grid-world artificial-life simulation
+Exec=protodish.x86_64
+Icon=protodish
+Categories=Education;Science;Biology;
+Terminal=false

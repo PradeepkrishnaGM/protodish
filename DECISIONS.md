@@ -552,3 +552,76 @@ measurements.
 - **UI tests.** `godot_ui` (`godot/tests/ui_tests.gd`) loads the real scene headless and presses
   every control through its signals. It covers speed (exact ticks per frame), pause, seed, presets,
   view and layer menus, the legend, End world and Restart.
+
+## M8 Release (plan approved 2026-10-07)
+
+### Downloads
+
+- **Two downloads per release,** built by GitHub Actions from a `v*` tag:
+  - `Protodish-<version>-x86_64.AppImage` (Linux);
+  - `Protodish-<version>-windows-x86_64.zip` (Windows).
+
+  The tag run creates a **draft** release with both files and `SHA256SUMS.txt`, which is
+  published by hand.
+- **The Windows zip holds the program, the library and a `licenses/` folder.** RULES.md says
+  two files. The license notices are added because Godot's MIT license, and the MinGW-w64
+  runtime's, require their notices to ship with the binaries. The program still needs only
+  the `.exe` and the `.dll`; the PCK is embedded in the `.exe`.
+- **The AppImage** holds the exported program, the library, `AppRun`, a desktop entry, the
+  icon, and the same license files under `usr/share/doc/protodish`.
+- **Unsigned.** The README tells Windows users how to get past the unknown-publisher warning.
+  The exported `.exe` keeps Godot's default icon and version info: setting them
+  (`application/modify_resources`) needs rcedit, which needs Wine on Linux. Not done for
+  v0.1.0.
+- **Command-line options for the app** (`--seed`, `--preset`, `--view`, `--speed`, after
+  `--`), for scripting the README media. Without them the app starts as before: seed 1,
+  Default preset, Lineage view, 4 ticks per frame. Unknown options are ignored, because
+  test scripts pass their own. `godot_cmdline` tests them.
+- **App icon:** `godot/icon.png`, drawn by `packaging/make_icon.py`: a dish rim holding a
+  few cells in lineage-view colors.
+
+### Engineering choices (M8)
+
+- **Scripts, not workflow steps.** `packaging/build-extension.sh` and `packaging/package.sh`
+  hold every build and packaging command. CI calls them, so a release can be rebuilt
+  locally the same way.
+- **Linux build:** Ubuntu 22.04 with GCC 12, `template_release`, and
+  `GODOTCPP_USE_STATIC_CPP=ON`. The library needs only libc and libm, at most
+  GLIBC_2.35. The fast core tests (`ctest -L fast`) run on this build in CI.
+- **Windows build:** cross-compiled on Ubuntu 24.04 with MinGW-w64 GCC 13 (posix threads),
+  using `cmake/toolchain-mingw-w64-x86_64.cmake`. libstdc++, libgcc and winpthreads are
+  linked statically. The DLL imports only `KERNEL32.dll` and `msvcrt.dll`, and
+  `package.sh` fails if a MinGW runtime DLL is needed. A DLL is a runtime output in
+  CMake, so `godot/CMakeLists.txt` also sets `RUNTIME_OUTPUT_DIRECTORY`. Cross-compiling
+  keeps CI on Linux runners: on private repos, Windows minutes count double.
+- **GCC 12–13 warn `-Wstringop-overflow`** on `vector::assign` in the World constructor,
+  with a bound of `SIZE_MAX`. This is a known false positive of those versions; GCC 15
+  does not warn. Left alone.
+- **Official Godot 4.7.2** editor and export templates. Their SHA-512 sums are pinned in
+  the workflow. The editor runs in self-contained mode (`._sc_`), so templates live next
+  to it, not in the home folder. Only the one template each platform needs is cached
+  (about 200 MB), not the 1.3 GB archive.
+- **appimagetool 1.9.1 and type2-runtime 20251108,** pinned by SHA-256, instead of the
+  moving `continuous` builds.
+- **Export presets** (`godot/export_presets.cfg`):
+  - the PCK is embedded;
+  - the include filter is `*.params`, so the presets ship;
+  - `tests/*` and `build-godot/*` are excluded;
+  - there is no console wrapper.
+- **Smoke test.** `package.sh` runs the exported Linux program headless for 120 frames and
+  fails on any error, including a library that does not load. The Windows build cannot be
+  run in CI; it is tested by hand before a release is published.
+- **CI cost.** The workflow runs only on `v*` tags and manual runs. ccache and the Godot
+  download are cached. Caches made on `main` are readable by tag runs, so a manual run on
+  `main` before tagging warms them. Manual runs keep their downloads as artifacts for 3
+  days. A cold build compiles godot-cpp, which took about 13 minutes in a local Ubuntu
+  container.
+- **Manual-run versions** are named `dev-<short sha>`; tag runs use the tag without the `v`.
+- **README media** (`docs/media/`) come from `packaging/make_media.sh`:
+  - Xvfb at 1280 × 800, Stable preset, seed 6.
+  - The four screenshots use `screenshot.gd` at about tick 10,000.
+  - The GIF is 400 frames recorded with Godot's Movie Maker (`--write-movie`, fixed 25 FPS)
+    at 32 ticks per frame. The crop keeps one pixel per site and scales up 3×, giving
+    5.1 MB.
+  - Two runs gave a byte-identical GIF.
+- **The RULES.md byline** ("Oct 5, 2026 · @Device") was removed, as asked.

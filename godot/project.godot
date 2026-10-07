@@ -6,6 +6,7 @@ config_version=5
 config/name="Protodish"
 config/description="A grid-world artificial-life simulation."
 run/main_scene="res://main.tscn"
+config/icon="res://icon.png"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]

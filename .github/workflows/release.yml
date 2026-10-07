@@ -1,0 +1,161 @@
+# Builds the Linux AppImage and the Windows zip (M8). Runs only on version tags and manual runs,
+# never on ordinary pushes, to keep Actions minutes low while the repo is private.
+# A tag push (v*) also creates a draft GitHub release with both downloads; publish it by hand.
+# A manual run on main keeps its downloads as workflow artifacts for 3 days, and warms the caches
+# that tag runs can read (caches from main are shared with tags; caches from a tag are not).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT_EDITOR_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+  GODOT_TEMPLATES_SHA512: ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079
+  APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+  APPIMAGE_RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # Ubuntu 22.04 (glibc 2.35) so the AppImage runs on older distributions.
+          - platform: linux
+            os: ubuntu-22.04
+            packages: cmake ninja-build g++-12 ccache zip
+            template: linux_release.x86_64
+          # The Windows library is cross-compiled with MinGW-w64 (GCC 13) on Linux.
+          - platform: windows
+            os: ubuntu-24.04
+            packages: cmake ninja-build g++-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 ccache zip
+            template: windows_release_x86_64.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
+      GODOT_DIR: ${{ github.workspace }}/.godot-editor
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ matrix.packages }}
+
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/cache@v6
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.platform }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.platform }}-
+
+      # Only the editor and the one template this platform needs are kept (about 200 MB),
+      # not the 1.3 GB template archive.
+      - uses: actions/cache@v6
+        id: godot-cache
+        with:
+          path: .godot-editor
+          key: godot-${{ env.GODOT_VERSION }}-${{ matrix.template }}
+
+      - name: Download Godot and its export template
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          dl="$RUNNER_TEMP/godot-download"
+          mkdir -p "$dl" "$GODOT_DIR"
+          curl -fsSL -o "$dl/editor.zip" "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o "$dl/templates.tpz" "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "$GODOT_EDITOR_SHA512  $dl/editor.zip" | sha512sum -c
+          echo "$GODOT_TEMPLATES_SHA512  $dl/templates.tpz" | sha512sum -c
+          unzip -q "$dl/editor.zip" -d "$GODOT_DIR"
+          mv "$GODOT_DIR/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GODOT_DIR/godot"
+          # Self-contained mode: settings and templates live next to the editor.
+          touch "$GODOT_DIR/._sc_"
+          templates="$GODOT_DIR/editor_data/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$templates"
+          unzip -jq "$dl/templates.tpz" "templates/${{ matrix.template }}" templates/version.txt -d "$templates"
+          rm -rf "$dl"
+
+      - name: Download appimagetool
+        if: matrix.platform == 'linux'
+        run: |
+          base=https://github.com/AppImage
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" "$base/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+          curl -fsSL -o "$RUNNER_TEMP/runtime-x86_64" "$base/type2-runtime/releases/download/20251108/runtime-x86_64"
+          echo "$APPIMAGETOOL_SHA256  $RUNNER_TEMP/appimagetool" | sha256sum -c
+          echo "$APPIMAGE_RUNTIME_SHA256  $RUNNER_TEMP/runtime-x86_64" | sha256sum -c
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+          echo "APPIMAGE_RUNTIME=$RUNNER_TEMP/runtime-x86_64" >> "$GITHUB_ENV"
+
+      - name: Build the extension
+        run: |
+          if [[ "${{ matrix.platform }}" == linux ]]; then export CC=gcc-12 CXX=g++-12; fi
+          packaging/build-extension.sh ${{ matrix.platform }}
+          ccache --show-stats
+
+      - name: Export and package
+        run: packaging/package.sh ${{ matrix.platform }} "$GODOT_DIR/godot" "${{ steps.version.outputs.version }}" dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: protodish-${{ matrix.platform }}
+          path: dist/*
+          retention-days: 3
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cat > notes.md <<EOF
+          Downloads for Linux (AppImage) and Windows (zip). See the README for how to run them.
+
+          - **Linux:** \`chmod +x Protodish-*.AppImage\`, then run it.
+          - **Windows:** unzip and run \`Protodish.exe\`. The program is unsigned, so Windows
+            shows an unknown-publisher warning the first time: choose "More info", then "Run anyway".
+
+          SHA-256 checksums are in \`SHA256SUMS.txt\`.
+          EOF
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "Protodish $GITHUB_REF_NAME" --notes-file notes.md \
+            Protodish-* SHA256SUMS.txt

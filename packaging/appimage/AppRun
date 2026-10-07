@@ -1,0 +1,4 @@
+#!/bin/sh
+# Starts Protodish from inside the AppImage. The extension library sits next to the program.
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/usr/bin/protodish.x86_64" "$@"
