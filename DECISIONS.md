@@ -349,7 +349,7 @@ measurements.
 
 - **Golden hashes.** `tests/data/golden_hashes.txt` holds the state hash every 1,000 ticks,
   up to 10,000, for seeds 1–3 in the default world and in the mild world
-  (`tests/data/mild.params`). They were recorded from commit ec8fa70, before any speed
+  (`tests/data/mild.params`). They were recorded from commit 8855d8d, before any speed
   work. The slow test `golden` checks them. A deliberate rule change has to regenerate
   the file and say why here.
 - **Speed work.** Every change keeps all golden hashes identical:
@@ -630,6 +630,7 @@ measurements.
 - **The RULES.md byline** ("Oct 5, 2026 · @Device") was removed, as asked.
 - **Commit history rewritten (2026-10-08), before the repo went public.** Every commit's
   author and committer email was changed from a personal address to the GitHub noreply
-  address with `git filter-repo --mailmap`. File contents are unchanged (the final tree hash
-  is identical), but every commit hash changed. The golden-hash commit above was 87ccaf0
-  before the rewrite. The old history stays in the private repo `protodish-old`.
+  address with `git filter-repo --mailmap`. A second rewrite the same day removed a local
+  working-notes file from every commit, reworded the lines that referred to it, and removed
+  commit-message trailers. Simulation code and test data are unchanged, but every commit
+  hash changed: the golden-hash commit above was 87ccaf0 before the rewrites.
