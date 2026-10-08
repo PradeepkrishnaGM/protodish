@@ -610,7 +610,10 @@ measurements.
   - there is no console wrapper.
 - **Smoke test.** `package.sh` runs the exported Linux program headless for 120 frames and
   fails on any error, including a library that does not load. The Windows build cannot be
-  run in CI; it is tested by hand before a release is published.
+  run in CI; it is tested by hand before a release is published. The CI build of
+  2026-10-07 was tested on a Windows 11 laptop on 2026-10-08: it ran, both presets loaded
+  and clicking a cell worked. Smart App Control had to be turned off first, because it
+  blocks unsigned programs with no "Run anyway"; the README says so.
 - **CI cost.** The workflow runs only on `v*` tags and manual runs. ccache and the Godot
   download are cached. Caches made on `main` are readable by tag runs, so a manual run on
   `main` before tagging warms them. Manual runs keep their downloads as artifacts for 3

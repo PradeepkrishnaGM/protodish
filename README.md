@@ -45,6 +45,12 @@ The app needs a graphics card with OpenGL 3.3.
   it next to the `.dll`, which holds the simulation. The program is unsigned, so the first
   time Windows shows an "unknown publisher" warning: choose **More info**, then **Run anyway**.
 
+  **Smart App Control.** On Windows 11 with Smart App Control turned on, Windows blocks
+  unsigned programs outright and offers no "Run anyway". The only way to run Protodish is to
+  turn Smart App Control off (Windows Security → App & browser control). On many Windows 11
+  versions it cannot be turned back on without reinstalling Windows, so decide whether
+  that is worth it. Windows 10 has no Smart App Control.
+
 Options can follow `--` on the command line, for example
 `./Protodish-*.AppImage -- --preset stable_d1a --seed 6 --speed 16 --view 3`:
 

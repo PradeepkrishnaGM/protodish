@@ -153,6 +153,7 @@ jobs:
           - **Linux:** \`chmod +x Protodish-*.AppImage\`, then run it.
           - **Windows:** unzip and run \`Protodish.exe\`. The program is unsigned, so Windows
             shows an unknown-publisher warning the first time: choose "More info", then "Run anyway".
+            On Windows 11 with Smart App Control on, it is blocked outright; see the README.
 
           SHA-256 checksums are in \`SHA256SUMS.txt\`.
           EOF
